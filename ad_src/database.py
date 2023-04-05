@@ -86,16 +86,10 @@ class DATABASE(object):
         limit:int (defualt=False)
         """
         self.data = None
-        query = 'select * from ' + self.meas
-        if not train and not valid and not limit:
-            query += ' where time>now()-1600ms'
-        elif train:
-            query += ' where time<now()-5m and time>now()-75m'
-        elif valid:
-            query += ' where time>now()-5m'
-        elif limit:
-            query += ' where time>now()-1m limit '+str(limit)
+        query = 'select * from sim_RUs where time>now()-5s' # hardcoded select that takes all recent RU writes (assuming it does not take more than 5 seconds per RU sim)
         result = self.query(query)
+        print("Data gathered:")
+        print(result)
         if result and len(result[self.meas]) != 0:
             self.data = result[self.meas]
 

@@ -70,18 +70,19 @@ float calc_dist(RU ru, UE ue)
 
 int calc_alloc_PRB(int ru_index)
 {
-    int alloc_PRB = 0;
+    int alloc_PRB = 2; // 2 slots allocated by default??
     for (auto &&ue : RU_conn[ru_index])
     {
         alloc_PRB += ue.get_demand();
     }
 
     // Sanity check
-    if (alloc_PRB > sim_RUs[ru_index].get_num_PRB()) {
+    if (alloc_PRB > sim_RUs[ru_index].get_num_PRB())
+    {
         cout << "!!! ERROR: More PRBs allocated for " + sim_RUs[ru_index].get_UID() + " than available !!!\n";
         cout << "Allocated: " << sim_RUs[ru_index].get_alloc_PRB() << ", Available: " << sim_RUs[ru_index].get_num_PRB() << "\n";
     }
-    
+
     return alloc_PRB;
 }
 
