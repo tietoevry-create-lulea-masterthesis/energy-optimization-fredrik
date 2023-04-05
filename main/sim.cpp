@@ -132,7 +132,7 @@ void *sim_loop(void *arg)
         for (auto &&ru : sim_RUs)
         {
             ru.calc_delta_p(); // value gotten from delta_p is dependent on last update time and is not interesting
-            influxdb->write(influxdb::Point{"sim_RU"}
+            influxdb->write(influxdb::Point{"sim_RUs"}
                                 .addTag("uid", ru.get_UID())
                                 .addField("free_PRB", ru.get_num_PRB() - ru.get_alloc_PRB())
                                 .addField("current_load", (float)ru.get_alloc_PRB() / (float)ru.get_num_PRB())
