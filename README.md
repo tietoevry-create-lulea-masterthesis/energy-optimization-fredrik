@@ -9,7 +9,11 @@ The simulation of the RAN is done under main/, where network components are defi
 
 ## xApps
 Similarly to the use case of the TS-xApp, the energy efficiency use case will require three different xApps.
+
 The AD-xApp is thought to be repurposed as a traffic monitoring xApp, actively scanning the network for interesting situation where increasing energy efficiency is relevant.
+
 The TS-xApp will be repurposed to carry over situations detected by the AD-xApp to the QP-xApp via RMR messages.
+
 The QP-xApp's sole purpose is to be alerted of relevant use case situations where it can investigate the related RUs and UEs (or other relevant information that has been stored in the database) in order to find a possible solution, which should be communicated and detailed to the TS-xApp, which is meant to be responsible for executing handovers and actually steering the traffic.
+
 Ideally the TS-xApp would be responsible for directly redirecting traffic via connections to network components, however as no real components exist in the simulation, the traffic steering decisions made by the TS-xApp will need to be forwarded back to the database where the RAN simulator can read the decisions and adjust the simulation accordingly.
