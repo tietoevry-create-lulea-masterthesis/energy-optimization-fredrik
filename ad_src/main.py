@@ -68,7 +68,7 @@ def predict(self):
     if db.data is not None:
         db.data = db.data.dropna(axis=0)
         if len(db.data) > 0:
-            val = investigate_RUs(self, db.data)
+            val = detect_RU_sit(self, db.data)
         else:
             logger.warning("Data undefined")
     else:
@@ -76,26 +76,6 @@ def predict(self):
         time.sleep(3)
     if (val is not None) and (len(val) > 2):
         msg_to_ts(self, val)
-
-def investigate_RUs(self, df):
-    """ Searches through RU-related data in order to
-    1) find large RUs with low loads that can be handed UEs
-    2) find small RUs with low loads that can be offloaded of UEs
-
-    Parameter
-    ........
-    df: array or dataframe
-
-    Return
-    ......
-    val: situation info(RUID, TimeStamp, SituationType)
-    """
-
-    low_ru = df.loc[df['current_load'] < 0.5]
-    if (len(low_ru) > 0):
-        low_ru = df['uid'].drop_duplicates() # array containing each relevant RU
-        for ru in low_ru:
-            pass # send an rmr message to ts xapp detailing interesting RUs
 
 def predict_anomaly(self, df):
     """ calls ad_predict to detect if given sample is normal or anomalous
@@ -127,6 +107,27 @@ def predict_anomaly(self, df):
     db.write_anomaly(df)
     return val
 
+def detect_RU_sit(self, df):
+    """ Searches through RU-related data in order to
+    1) find large RUs with low loads that can be handed UEs
+    2) find small RUs with low loads that can be offloaded of UEs
+
+    Parameter
+    ........
+    df: array or dataframe
+
+    Return
+    ......
+    val: situation info(RUID, TimeStamp, SituationType)
+    """
+
+    low_ru = df.loc[df['current_load'] < 0.5]
+    if (len(low_ru) > 0):
+        low_ru = df['uid'].drop_duplicates() # array containing each relevant RU
+        sit_collection = low_ru.assign(sit="low_load") # add column describing situation for each entry (everyone is low_load so far)
+        result = json.loads(sit_collection.to_json(orient='values'))
+        val = json.dumps(result).encode()
+    return val
 
 def msg_to_ts(self, val):
     # send message from ad to ts

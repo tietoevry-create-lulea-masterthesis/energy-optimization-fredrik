@@ -295,7 +295,7 @@ struct TrafficSituationHandler : public BaseReaderHandler<UTF8<>, TrafficSituati
     Assuming we receive the following payload from TM
     <json>
   */
-  vector<string> prediction_ues;
+  vector<string> investigate_RUs;
   string curr_key = "";
 
   bool Key(const Ch* str, SizeType len, bool copy) {
@@ -304,9 +304,9 @@ struct TrafficSituationHandler : public BaseReaderHandler<UTF8<>, TrafficSituati
   }
 
   bool String(const Ch* str, SizeType len, bool copy) {
-    // We are only interested in the "ue-id"
-    if ( curr_key.compare( "ue-id") == 0 ) {
-      prediction_ues.push_back( str );
+    // We are only interested in the "RU-uid"
+    if ( curr_key.compare( "uid") == 0 ) {
+      investigate_RUs.push_back( str );
     }
     return true;
   }
@@ -891,12 +891,12 @@ void tm_callback( Message& mbuf, int mtype, int subid, int len, Msg_component pa
   cout << "[INFO] Received TM-situation, type=" << mtype << ", length=" << len << "\n";
   cout << "[INFO] Payload is " << json << "\n";
 
-  AnomalyHandler handler;
+  TrafficSituationHandler handler;
   Reader reader;
   StringStream ss(json.c_str());
   reader.Parse(ss,handler);
 
-  // just sending ACK to the AD xApp
+  // returns an ACK to the TM xApp
   mbuf.Send_response( TM_SIT_ACK, Message::NO_SUBID, len, nullptr );  // msg type 30035
 
   send_prediction_request(handler.prediction_ues);
@@ -1003,7 +1003,7 @@ extern int main( int argc, char** argv ) {
 
   xfw->Add_msg_cb( A1_POLICY_REQ, policy_callback, NULL );          // msg type 20010
   xfw->Add_msg_cb( TS_QOE_PREDICTION, prediction_callback, NULL );  // msg type 30002
-  xfw->Add_msg_cb( TS_ANOMALY_UPDATE, ad_callback, NULL ); /*Register a callback function for msg type 30003*/
+  xfw->Add_msg_cb( TM_SIT_FOUND, tm_callback, NULL ); /*Register a callback function for msg type 30003*/
 
   xfw->Run( nthreads );
 
