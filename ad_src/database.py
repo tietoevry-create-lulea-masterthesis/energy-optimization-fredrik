@@ -86,7 +86,7 @@ class DATABASE(object):
         limit:int (defualt=False)
         """
         self.data = None
-        query = 'select * from sim_RUs where time>now()-1h' # hardcoded select that takes all recent RU writes (assuming it does not take more than 5 seconds per RU sim)
+        query = 'select * from sim_RUs where time>now()-5s' # hardcoded select that takes all recent RU writes (assuming it does not take more than 5 seconds per RU sim)
         result = self.query(query)
         print("Data gathered:")
         print(result)
