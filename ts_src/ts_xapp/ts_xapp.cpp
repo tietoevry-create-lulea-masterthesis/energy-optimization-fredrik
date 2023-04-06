@@ -71,6 +71,9 @@
 #define TS_ANOMALY_UPDATE			30003
 #define TS_ANOMALY_ACK			  30004
 
+#define TM_SIT_FOUND		  30034
+#define TM_SIT_ACK			  30035
+
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
@@ -268,6 +271,29 @@ struct AnomalyHandler : public BaseReaderHandler<UTF8<>, AnomalyHandler> {
   /*
     Assuming we receive the following payload from AD
     [{"du-id": 1010, "ue-id": "Train passenger 2", "measTimeStampRf": 1620835470108, "Degradation": "RSRP RSSINR"}]
+  */
+  vector<string> prediction_ues;
+  string curr_key = "";
+
+  bool Key(const Ch* str, SizeType len, bool copy) {
+    curr_key = str;
+    return true;
+  }
+
+  bool String(const Ch* str, SizeType len, bool copy) {
+    // We are only interested in the "ue-id"
+    if ( curr_key.compare( "ue-id") == 0 ) {
+      prediction_ues.push_back( str );
+    }
+    return true;
+  }
+};
+
+
+struct TrafficSituationHandler : public BaseReaderHandler<UTF8<>, TrafficSituationHandler> {
+  /*
+    Assuming we receive the following payload from TM
+    <json>
   */
   vector<string> prediction_ues;
   string curr_key = "";
@@ -718,6 +744,59 @@ void prediction_callback( Message& mbuf, int mtype, int subid, int len, Msg_comp
 
   }
 
+
+/// @brief Legally distinct (not at all) version from the prediction_callback above
+/// @param mbuf idk
+/// @param mtype idk
+/// @param subid idk
+/// @param len idk
+/// @param payload idk
+/// @param data idk
+void traffic_investigation_callback( Message& mbuf, int mtype, int subid, int len, Msg_component payload,  void* data ) {
+  string json ((char *)payload.get(), len); // RMR payload might not have a nil terminanted char
+
+  cout << "[INFO] Prediction Callback got a message, type=" << mtype << ", length=" << len << "\n";
+  cout << "[INFO] Payload is " << json << endl;
+
+  PredictionHandler handler;
+  try {
+    Reader reader;
+    StringStream ss(json.c_str());
+    reader.Parse(ss,handler);
+  } catch (...) {
+    cout << "[ERROR] Got an exception on stringstream read parse\n";
+  }
+
+  // We are only considering download throughput
+  unordered_map<string, int> throughput_map = handler.cell_pred_down;
+
+  // Decision about CONTROL message
+  // (1) Identify UE Id in Prediction message
+  // (2) Iterate through Prediction message.
+  //     If one of the cells has a higher throughput prediction than serving cell, send a CONTROL request
+  //     We assume the first cell in the prediction message is the serving cell
+
+  int serving_cell_throughput = 0;
+  int highest_throughput = 0;
+  string highest_throughput_cell_id;
+
+  // Getting the current serving cell throughput prediction
+  auto cell = throughput_map.find( handler.serving_cell_id );
+  serving_cell_throughput = cell->second;
+
+   // Iterating to identify the highest throughput prediction
+  for (auto map_iter = throughput_map.begin(); map_iter != throughput_map.end(); map_iter++) {
+
+    string curr_cellid = map_iter->first;
+    int curr_throughput = map_iter->second;
+
+    if ( highest_throughput < curr_throughput ) {
+      highest_throughput = curr_throughput;
+      highest_throughput_cell_id = curr_cellid;
+    }
+
+  }
+
   float thresh = 0;
   if( downlink_threshold > 0 ) {  // we also take into account the threshold in A1 policy type 20008
     thresh = serving_cell_throughput * (downlink_threshold / 100.0);
@@ -798,6 +877,27 @@ void ad_callback( Message& mbuf, int mtype, int subid, int len, Msg_component pa
 
   // just sending ACK to the AD xApp
   mbuf.Send_response( TS_ANOMALY_ACK, Message::NO_SUBID, len, nullptr );  // msg type 30004
+
+  send_prediction_request(handler.prediction_ues);
+}
+
+/* This function expects a message detailing a situation where traffic steering is required,
+ * either for the sake of moving traffic in order to allow low-load RUs to sleep or for the
+ * sake of waking slept RUs in order to increase network capacity.
+ */
+void tm_callback( Message& mbuf, int mtype, int subid, int len, Msg_component payload, void* data ) {
+  string json ((char *)payload.get(), len); // RMR payload might not have a nil terminanted char
+
+  cout << "[INFO] Received TM-situation, type=" << mtype << ", length=" << len << "\n";
+  cout << "[INFO] Payload is " << json << "\n";
+
+  AnomalyHandler handler;
+  Reader reader;
+  StringStream ss(json.c_str());
+  reader.Parse(ss,handler);
+
+  // just sending ACK to the AD xApp
+  mbuf.Send_response( TM_SIT_ACK, Message::NO_SUBID, len, nullptr );  // msg type 30035
 
   send_prediction_request(handler.prediction_ues);
 }
