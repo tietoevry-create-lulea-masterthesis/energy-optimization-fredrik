@@ -86,12 +86,12 @@ class DATABASE(object):
         limit:int (defualt=False)
         """
         self.data = None
-        query = 'select * from sim_RUs where time>now()-5s' # hardcoded select that takes all recent RU writes (assuming it does not take more than 5 seconds per RU sim)
+        query = 'select * from sim_RUs where time>now()-1h' # hardcoded select that takes all recent RU writes (assuming it does not take more than 5 seconds per RU sim)
         result = self.query(query)
         print("Data gathered:")
         print(result)
-        if result and len(result[self.meas]) != 0:
-            self.data = result[self.meas]
+        if result and len(result['sim_RUs']) != 0:
+            self.data = result['sim_RUs']
 
     def write_anomaly(self, df, meas='AD'):
         """Write data method for a given measurement

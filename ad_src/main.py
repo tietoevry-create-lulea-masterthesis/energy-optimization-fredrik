@@ -75,7 +75,7 @@ def predict(self):
         logger.warning("No data in last 3 seconds")
         time.sleep(3)
     if (val is not None) and (len(val) > 2):
-        msg_to_ts(self, val)
+        msg_to_ee(self, val)
 
 def predict_anomaly(self, df):
     """ calls ad_predict to detect if given sample is normal or anomalous
@@ -124,8 +124,7 @@ def detect_RU_sit(self, df):
     low_ru = df.loc[df['current_load'] < 0.5]
     if (len(low_ru) > 0):
         low_ru = df['uid'].drop_duplicates() # array containing each relevant RU
-        sit_collection = low_ru.assign(sit="low_load") # add column describing situation for each entry (everyone is low_load so far)
-        result = json.loads(sit_collection.to_json(orient='values'))
+        result = json.loads(low_ru.to_json(orient='values'))
         val = json.dumps(result).encode()
     return val
 

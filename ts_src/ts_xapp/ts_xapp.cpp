@@ -743,7 +743,7 @@ void prediction_callback( Message& mbuf, int mtype, int subid, int len, Msg_comp
     }
 
   }
-
+}
 
 /// @brief Legally distinct (not at all) version from the prediction_callback above
 /// @param mbuf idk
@@ -860,6 +860,11 @@ void send_prediction_request( vector<string> ues_to_predict ) {
 
 }
 
+/// legally distinct yadda yadda
+void send_investigation_request( vector<string> rus_to_investigate ) {
+  // do sumn
+}
+
 /* This function works with Anomaly Detection(AD) xApp. It is invoked when anomalous UEs are send by AD xApp.
  * It parses the payload received from AD xApp, sends an ACK with same UEID as payload to AD xApp, and
  * sends a prediction request to the QP Driver xApp.
@@ -899,7 +904,7 @@ void tm_callback( Message& mbuf, int mtype, int subid, int len, Msg_component pa
   // returns an ACK to the TM xApp
   mbuf.Send_response( TM_SIT_ACK, Message::NO_SUBID, len, nullptr );  // msg type 30035
 
-  send_prediction_request(handler.prediction_ues);
+  send_prediction_request(handler.investigate_RUs);
 }
 
 vector<string> get_nodeb_list( restclient::RestClient& client ) {
@@ -1001,9 +1006,9 @@ extern int main( int argc, char** argv ) {
   fprintf( stderr, "[INFO] listening on port %s\n", port );
   xfw = std::unique_ptr<Xapp>( new Xapp( port, true ) );
 
-  xfw->Add_msg_cb( A1_POLICY_REQ, policy_callback, NULL );          // msg type 20010
+  xfw->Add_msg_cb( A1_POLICY_REQ, policy_callback, NULL );          // Register a callback function for msg type 20010
   xfw->Add_msg_cb( TS_QOE_PREDICTION, prediction_callback, NULL );  // msg type 30002
-  xfw->Add_msg_cb( TM_SIT_FOUND, tm_callback, NULL ); /*Register a callback function for msg type 30003*/
+  xfw->Add_msg_cb( TM_SIT_FOUND, tm_callback, NULL );               // msg type 30034
 
   xfw->Run( nthreads );
 
