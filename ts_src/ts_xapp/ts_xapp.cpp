@@ -74,6 +74,11 @@
 #define TM_SIT_FOUND		  30034
 #define TM_SIT_ACK			  30035
 
+#define HP_INVESTIGATE    30036
+#define HP_HANDOVERS      30037
+
+#define SIM_HANDOVERS     30038
+
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
@@ -860,9 +865,47 @@ void send_prediction_request( vector<string> ues_to_predict ) {
 
 }
 
-/// legally distinct yadda yadda
+/// Send list of RUs to investigate to HP-xApp
 void send_investigation_request( vector<string> rus_to_investigate ) {
-  // do sumn
+  std::unique_ptr<Message> msg;
+  Msg_component payload;           // special type of unique pointer to the payload
+
+  int sz;
+  int i;
+  size_t plen;
+  Msg_component send_payload;
+
+  msg = xfw->Alloc_msg( 2048 );
+
+  sz = msg->Get_available_size();  // we'll reuse a message if we received one back; ensure it's big enough
+  if( sz < 2048 ) {
+    fprintf( stderr, "[ERROR] message returned did not have enough size: %d [%d]\n", sz, i );
+    exit( 1 );
+  }
+
+  string RU_list = "[";
+
+  for (int i = 0; i < rus_to_investigate.size(); i++) {
+    if (i == rus_to_investigate.size() - 1) {
+      RU_list = RU_list + "\"" + rus_to_investigate.at(i) + "\"]";
+    } else {
+      RU_list = RU_list + "\"" + rus_to_investigate.at(i) + "\"" + ",";
+    }
+  }
+
+  string message_body = "{\"RUPredictionSet\": " + RU_list + "}";
+
+  send_payload = msg->Get_payload(); // direct access to payload
+  snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
+
+  plen = strlen( (char *)send_payload.get() );
+
+  cout << "[INFO] Prediction Request length=" << plen << ", payload=" << send_payload.get() << endl;
+
+  // payload updated in place, nothing to copy from, so payload parm is nil
+  if ( ! msg->Send_msg( HP_INVESTIGATE, Message::NO_SUBID, plen, NULL )) { // msg type 30036
+    fprintf( stderr, "[ERROR] send failed: %d\n", msg->Get_state() );
+  }
 }
 
 /* This function works with Anomaly Detection(AD) xApp. It is invoked when anomalous UEs are send by AD xApp.
@@ -904,7 +947,7 @@ void tm_callback( Message& mbuf, int mtype, int subid, int len, Msg_component pa
   // returns an ACK to the TM xApp
   mbuf.Send_response( TM_SIT_ACK, Message::NO_SUBID, len, nullptr );  // msg type 30035
 
-  send_prediction_request(handler.investigate_RUs);
+  send_investigation_request(handler.investigate_RUs);
 }
 
 vector<string> get_nodeb_list( restclient::RestClient& client ) {
