@@ -126,7 +126,7 @@ def detect_RU_sit(self, df):
         low_ru = df['uid'].drop_duplicates() # array containing each relevant RU
         sit_df = pd.DataFrame(low_ru)
         sit_df["sit"] = "LOW_TRAFFIC"
-        result = json.loads(low_ru.to_json(orient='records'))
+        result = json.loads(sit_df.to_json(orient='records'))
         val = json.dumps(result).encode()
     return val
 
