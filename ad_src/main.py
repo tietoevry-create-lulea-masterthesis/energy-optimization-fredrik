@@ -143,13 +143,13 @@ def msg_to_ee(self, val):
     # legally distinct from original msg_to_ts (not really)
 
     # send message from tm to ee
-    logger.debug("Sending Traffic Situations to TS")
-    success = self.rmr_send(val, 30034) # NOTE !!!!! <---- NEEDS SETTING UP IN ROUTING TABLE IN FOLDER WHERE xApp AND DOCKERFILE IS CONTAINED
+    logger.debug("Sending Traffic Situations to EE")
+    success = self.rmr_send(val, 30034) # TM_SIT_FOUND, NOTE !!!!! <---- NEEDS SETTING UP IN ROUTING TABLE IN FOLDER WHERE xApp AND DOCKERFILE IS CONTAINED
     if success:
-        logger.info(" Message to TS: message sent Successfully")
+        logger.info(" Message to EE: message sent Successfully")
     # rmr receive to get the acknowledgement message from the traffic steering.
     for (summary, sbuf) in self.rmr_get_messages():
-        logger.info("Received acknowldgement from TS (TS_ANOMALY_ACK): {}".format(summary))
+        logger.info("Received acknowldgement from EE (TM_SIT_ACK): {}".format(summary))
         self.rmr_free(sbuf)
 
 
