@@ -51,7 +51,7 @@ def post_init(self):
     Function that runs when xapp initialization is complete
     """
     self.predict_requests = 0
-    logger.debug("QP xApp started")
+    logger.debug("HP xApp started")
 
 
 def qp_default_handler(self, summary, sbuf):
@@ -66,8 +66,8 @@ def handover_predict_handler(self, summary, sbuf):
     """
     Function that processes messages for type 30036
     """
-    logger.debug("predict handler received payload {}".format(summary[rmr.RMR_MS_PAYLOAD]))
-    pred_msg = predict(summary[rmr.RMR_MS_PAYLOAD])
+    logger.debug("handover predict handler received payload {}".format(summary[rmr.RMR_MS_PAYLOAD]))
+    pred_msg = predict_handovers(summary[rmr.RMR_MS_PAYLOAD])
     self.predict_requests += 1
     # we don't use rts here; free this
     self.rmr_free(sbuf)
@@ -117,14 +117,32 @@ def predict_handovers(payload):
     ru_list = payload['RUPredictionSet']
 
     # stupid test: for each RU, see if connected UEs are close to RU_52, if so, handover them to RU_52
-    db.read_ru_conn_data() # gather all RU connections
+    db.read_ru_data() # gather all RU connections
     for ru_uid in ru_list:
-        # gather all UEs connected to RU being investigated
-        latest_ru_entry = db.data.loc[db.data['uid'] == ru_uid]
-        connected_UEs # how tf do i get a singlöe entry (latest) ???
-        # loop through and gather data on each UE to find closest RUs
-        # if one of the closest RUs is RU_52, construct handover tuple
+        # gather last data point for current RU
+        latest_ru_entry = db.data.loc[db.data['uid'] == ru_uid].tail(1)
 
+        # gather string containing all connected UEs
+        conn_list = latest_ru_entry["connections"][0]
+        if (len(conn_list) > 0):
+            # If RU has connected UEs, split into array, removing last entry since it will be empty string
+            conn_list = conn_list.split(",")[:-1]
+
+            # loop through and gather data on each UE to find closest RUs
+            for ue in conn_list:
+                latest_ue_entry = db.read_ue_data(ue).tail(1)
+                it1 = "ru_close_"
+                it2 = "ru_close_dist_"
+                # look through all RUs except closest RU
+                for i in range(1, 5):
+                    # check if one of the close RUs is RU_52
+                    if (latest_ue_entry[it1 + str(i)][0] == "RU_52"):
+                        print("Found RU_52, dist: " + str(latest_ue_entry[it2 + str(i)][0]))
+
+                        # construct handover prediction
+                        output[ue] = ru_uid + "," + latest_ue_entry[it2 + str(i)][0]
+
+    # return all handovers
     return json.dumps(output)
 
 def predict(payload):
@@ -168,12 +186,12 @@ def start(thread=False):
     for "real" (no thread, real SDL), but also easily modified for unit testing
     (e.g., use_fake_sdl). The defaults for this function are for the Dockerized xapp.
     """
-    logger.debug("QP xApp starting")
+    logger.debug("HP xApp starting")
     global qp_xapp
     connectdb(thread)
     fake_sdl = os.environ.get("USE_FAKE_SDL", None)
     qp_xapp = RMRXapp(qp_default_handler, rmr_port=4560, post_init=post_init, use_fake_sdl=bool(fake_sdl))
-    qp_xapp.register_callback(qp_predict_handler, 30036)
+    qp_xapp.register_callback(handover_predict_handler, 30036)
     qp_xapp.run(thread)
 
 

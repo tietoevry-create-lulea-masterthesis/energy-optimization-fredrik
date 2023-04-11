@@ -116,6 +116,7 @@ string stringify_connected_ues(int ru_index)
         ue_string += ue.get_UID() + ",";
     }
     
+    return ue_string;
 }
 
 void *sim_loop(void *arg)
