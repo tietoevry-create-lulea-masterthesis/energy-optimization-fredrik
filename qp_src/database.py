@@ -54,6 +54,23 @@ class DATABASE(object):
             logger.error("Failed to establish a new connection with InfluxDB, Please check your url/hostname")
             time.sleep(120)
 
+    def read_ru_data(self):
+        self.data = None
+        query = 'select * from sim_RUs where time>now()-5s' # hardcoded select that takes all recent RU writes (assuming it does not take more than 5 seconds per RU timestep)
+        result = self.query(query)
+        print("Data gathered:")
+        print(result)
+        if result and len(result['sim_RUs']) != 0:
+            self.data = result['sim_RUs']
+
+    def query_basic(self, query):
+            try:
+                result = self.client.query(query)
+            except (RequestException, InfluxDBClientError, InfluxDBServerError, ConnectionError) as e:
+                logger.error('Failed to connect to influxdb: {}'.format(e))
+                result = False
+            return result
+
     def read_data(self, meas='ueMeasReport', limit=10000, cellid=False, ueid=False):
 
         if cellid:

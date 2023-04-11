@@ -18,10 +18,14 @@
 qp module main -- using Time series ML predictor
 
 RMR Messages:
- #define TS_UE_LIST 30000
- #define TS_QOE_PREDICTION 30002
-30000 is the message type QP receives from the TS;
-sends out type 30002 which should be routed to TS.
+HP_INVESTIGATE    30036
+HP_HANDOVERS      30037
+
+The 30036 RMR message that is received from the EE-xApp contains a list of RUs to
+investigate in order to find potential beneficial handovers of UEs
+
+The 30037 RMR message is then meant to be sent back, containing UE UIDs along with
+tuples of RU UIDs that symbolize beneficial handovers
 
 """
 import os
@@ -58,6 +62,21 @@ def qp_default_handler(self, summary, sbuf):
     # we don't use rts here; free this
     self.rmr_free(sbuf)
 
+def handover_predict_handler(self, summary, sbuf):
+    """
+    Function that processes messages for type 30036
+    """
+    logger.debug("predict handler received payload {}".format(summary[rmr.RMR_MS_PAYLOAD]))
+    pred_msg = predict(summary[rmr.RMR_MS_PAYLOAD])
+    self.predict_requests += 1
+    # we don't use rts here; free this
+    self.rmr_free(sbuf)
+    success = self.rmr_send(pred_msg.encode(), 30037)
+    logger.debug("Sending message to EE-xApp : {}".format(pred_msg))  # For debug purpose
+    if success:
+        logger.debug("predict handler: sent message successfully")
+    else:
+        logger.warning("predict handler: failed to send message")
 
 def qp_predict_handler(self, summary, sbuf):
     """
@@ -89,6 +108,24 @@ def cells(ue):
         cells = srvc+nbc
     return cells
 
+def predict_handovers(payload):
+    """
+        Investigates all UEs connected to each reported RU and finds possible ways to move them
+    """
+    output = {}
+    payload = json.loads(payload)
+    ru_list = payload['RUPredictionSet']
+
+    # stupid test: for each RU, see if connected UEs are close to RU_52, if so, handover them to RU_52
+    db.read_ru_conn_data() # gather all RU connections
+    for ru_uid in ru_list:
+        # gather all UEs connected to RU being investigated
+        latest_ru_entry = db.data.loc[db.data['uid'] == ru_uid]
+        connected_UEs # how tf do i get a singlöe entry (latest) ???
+        # loop through and gather data on each UE to find closest RUs
+        # if one of the closest RUs is RU_52, construct handover tuple
+
+    return json.dumps(output)
 
 def predict(payload):
     """
@@ -136,7 +173,7 @@ def start(thread=False):
     connectdb(thread)
     fake_sdl = os.environ.get("USE_FAKE_SDL", None)
     qp_xapp = RMRXapp(qp_default_handler, rmr_port=4560, post_init=post_init, use_fake_sdl=bool(fake_sdl))
-    qp_xapp.register_callback(qp_predict_handler, 30000)
+    qp_xapp.register_callback(qp_predict_handler, 30036)
     qp_xapp.run(thread)
 
 

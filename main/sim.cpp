@@ -107,13 +107,23 @@ string find_closest_rus(UE *ue, int n_closest)
     return candidates[0].ru_uid;
 }
 
+string stringify_connected_ues(int ru_index)
+{
+    string ue_string = "";
+
+    for (auto &&ue : RU_conn[ru_index])
+    {
+        ue_string += ue.get_UID() + ",";
+    }
+    
+}
+
 void *sim_loop(void *arg)
 {
     auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
     influxdb->batchOf(100); // creates buffer for writes, only writes to database once 100 points of data have accumulated
 
     // write all UE data to db (should be done along with each new UE popping up)
-
     for (auto &&ue : sim_UEs)
     {
         auto ue_point = influxdb::Point{"sim_UEs"}
@@ -130,16 +140,19 @@ void *sim_loop(void *arg)
 
     while (true)
     {
-        for (auto &&ru : sim_RUs)
+        // Loop through each RU and simulate power consumption + connections
+        for (size_t i = 0; i < RU_NUM; i++)
         {
-            ru.calc_delta_p(); // value gotten from delta_p is dependent on last update time and is not interesting
+            sim_RUs[i].calc_delta_p(); // value gotten from delta_p is dependent on last update time and is not interesting
             influxdb->write(influxdb::Point{"sim_RUs"}
-                                .addTag("uid", ru.get_UID())
-                                .addField("free_PRB", ru.get_num_PRB() - ru.get_alloc_PRB())
-                                .addField("current_load", (float)ru.get_alloc_PRB() / (float)ru.get_num_PRB())
-                                .addField("p", ru.get_p())
-                                .addField("p_tot", ru.get_p_tot()));
+                                .addTag("uid", sim_RUs[i].get_UID())
+                                .addField("free_PRB", sim_RUs[i].get_num_PRB() - sim_RUs[i].get_alloc_PRB())
+                                .addField("current_load", (float)sim_RUs[i].get_alloc_PRB() / (float)sim_RUs[i].get_num_PRB())
+                                .addField("p", sim_RUs[i].get_p())
+                                .addField("p_tot", sim_RUs[i].get_p_tot()));
+                                .addFielld("connections", stringify_connected_ues(i))
         }
+        
 
         cout << "written all RU points\n";
     }
