@@ -57,7 +57,7 @@ class DATABASE(object):
     def read_ru_data(self):
         self.data = None
         query = 'select * from sim_RUs where time>now()-10s' # hardcoded select that takes all RU writes from last 10
-        result = self.query(query)
+        result = self.query_basic(query)
         print("Data gathered:")
         print(result)
         if result and len(result['sim_RUs']) != 0:
@@ -66,7 +66,7 @@ class DATABASE(object):
     def read_ue_data(self, ue):
         self.data = None
         query = 'select * from sim_UEs where time>now()-1h and uid="' + ue + '"' # hardcoded select that takes all writes for a specific UE (assuming the last relevant data point was from 1 hour ago)
-        result = self.query(query)
+        result = self.query_basic(query)
         print("Data gathered:")
         print(result)
         if result and len(result['sim_UEs']) != 0:
