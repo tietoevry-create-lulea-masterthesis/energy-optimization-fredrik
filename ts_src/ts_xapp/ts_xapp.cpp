@@ -310,7 +310,7 @@ struct TrafficSituationHandler : public BaseReaderHandler<UTF8<>, TrafficSituati
 
   bool String(const Ch* str, SizeType len, bool copy) {
     // We are only interested in the "RU-uid"
-    if ( curr_key.compare( "uid") == 0 ) {
+    if ( curr_key.compare("uid") == 0 ) {
       investigate_RUs.push_back( str );
     }
     return true;

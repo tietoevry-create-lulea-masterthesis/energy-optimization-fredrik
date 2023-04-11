@@ -121,10 +121,12 @@ def detect_RU_sit(self, df):
     val: situation info(RUID, TimeStamp, SituationType)
     """
 
-    low_ru = df.loc[df['current_load'] < 0.5]
+    low_ru = df.loc[df['current_load'] < 0.1]
     if (len(low_ru) > 0):
         low_ru = df['uid'].drop_duplicates() # array containing each relevant RU
-        result = json.loads(low_ru.to_json(orient='values'))
+        sit_df = pd.DataFrame(low_ru)
+        sit_df["sit"] = "LOW_TRAFFIC"
+        result = json.loads(low_ru.to_json(orient='records'))
         val = json.dumps(result).encode()
     return val
 
