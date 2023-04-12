@@ -241,6 +241,7 @@ struct HandoverStruct {
 
 struct HandoverHandler : public BaseReaderHandler<UTF8<>, HandoverHandler> {
   vector<HandoverStruct> handovers;
+  string curr_key = "";
   bool Null() {  return true; }
   bool Bool(bool b) {  return true; }
   bool Int(int i) {  return true; }
