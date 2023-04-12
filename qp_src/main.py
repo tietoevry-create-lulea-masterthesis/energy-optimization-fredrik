@@ -68,6 +68,7 @@ def handover_predict_handler(self, summary, sbuf):
     """
     logger.debug("handover predict handler received payload {}".format(summary[rmr.RMR_MS_PAYLOAD]))
     pred_msg = predict_handovers(summary[rmr.RMR_MS_PAYLOAD])
+    print("pred_msg:", pred_msg)
     self.predict_requests += 1
     # we don't use rts here; free this
     self.rmr_free(sbuf)
@@ -117,31 +118,37 @@ def predict_handovers(payload):
     ru_list = payload['RUPredictionSet']
 
     # stupid test: for each RU, see if connected UEs are close to RU_52, if so, handover them to RU_52
-    db.read_ru_data() # gather all RU connections
+    db.read_ru_data() # gather all RU data
+    ru_data = db.data # store RU data
+
     for ru_uid in ru_list:
         # gather last data point for current RU
-        latest_ru_entry = db.data.loc[db.data['uid'] == ru_uid].tail(1)
+        latest_ru_entry = ru_data.loc[ru_data['uid'] == ru_uid].tail(1)
 
-        # gather string containing all connected UEs
-        conn_list = latest_ru_entry["connections"][0]
-        if (len(conn_list) > 0):
-            # If RU has connected UEs, split into array, removing last entry since it will be empty string
-            conn_list = conn_list.split(",")[:-1]
+        # check if RU's latest entry has any connected UEs
+        if (len(latest_ru_entry["connections"]) > 0):
+            conn_list = latest_ru_entry["connections"][0] # gather string containing all connected UEs
 
-            # loop through and gather data on each UE to find closest RUs
-            for ue in conn_list:
-                db.read_ue_data(ue)
-                latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
-                it1 = "ru_close_"
-                it2 = "ru_close_dist_"
-                # look through all RUs except closest RU
-                for i in range(1, 5):
-                    # check if one of the close RUs is RU_52
-                    if (latest_ue_entry[it1 + str(i)][0] == "RU_52"):
-                        print("Found RU_52, dist: " + str(latest_ue_entry[it2 + str(i)][0]))
+            if (conn_list is not None):
+                # If RU has connected UEs, split into array, removing last entry since it will be an empty string
+                # conn_list will look like "UE_1,UE_2,UE_3,"
+                conn_list = conn_list.split(",")[:-1]
 
-                        # construct handover prediction
-                        output[ue] = ru_uid + "," + latest_ue_entry[it2 + str(i)][0]
+                # loop through and gather data on each UE to find closest RUs
+                for ue in conn_list:
+                    db.read_ue_data(ue)
+                    latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
+                    it1 = "ru_close_"
+                    it2 = "ru_close_dist_"
+                    # look through all RUs except closest RU
+                    for i in range(1, 5):
+                        # check if one of the close RUs is RU_52
+                        if (latest_ue_entry[it1 + str(i)][0] == "RU_52"):
+                            print("Found RU_52, dist: " + str(latest_ue_entry[it2 + str(i)][0]))
+
+                            # construct handover prediction
+                            # will look like "UE_1": "RU_61,RU_52"
+                            output[ue] = ru_uid + ",RU_52" 
 
     # return all handovers
     return json.dumps(output)

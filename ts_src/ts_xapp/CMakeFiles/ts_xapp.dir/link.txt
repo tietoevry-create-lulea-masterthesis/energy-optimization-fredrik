@@ -1,1 +1,0 @@
-/usr/bin/c++  -g    CMakeFiles/ts_xapp.dir/ts_xapp.cpp.o ../../ext/protobuf/CMakeFiles/rc_objects.dir/rc.pb.cc.o ../../ext/protobuf/CMakeFiles/rc_objects.dir/rc.grpc.pb.cc.o ../utils/CMakeFiles/utils_objects.dir/restclient.cpp.o  -o ts_xapp  -lricxfcpp -lrmr_si -lpthread -lgrpc++ /usr/lib/x86_64-linux-gnu/libprotobuf.so -lcurl 

@@ -88,8 +88,8 @@ class DATABASE(object):
         self.data = None
         query = 'select * from sim_RUs where time>now()-5s' # hardcoded select that takes all recent RU writes (assuming it does not take more than 5 seconds per RU timestep)
         result = self.query(query)
-        print("Data gathered:")
-        print(result)
+        #print("Data gathered:")
+        #print(result)
         if result and len(result['sim_RUs']) != 0:
             self.data = result['sim_RUs']
 

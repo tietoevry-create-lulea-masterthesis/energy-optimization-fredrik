@@ -40,7 +40,7 @@ def entry(self):
     connectdb()
     #train_model() # won't be needing any ML for this I think
     #load_model()
-    schedule.every(0.5).seconds.do(predict, self)
+    schedule.every(5).seconds.do(predict, self)
     while True:
         schedule.run_pending()
 
@@ -170,5 +170,5 @@ def connectdb(thread=False):
 def start(thread=False):
     # Initiates xapp api and runs the entry() using xapp.run()
     xapp = Xapp(entrypoint=entry, rmr_port=4560, use_fake_sdl=False)
-    xapp.logger.debug("AD xApp starting")
+    xapp.logger.debug("TM xApp starting")
     xapp.run()

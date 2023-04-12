@@ -77,7 +77,7 @@
 #define HP_INVESTIGATE    30036
 #define HP_HANDOVERS      30037
 
-#define SIM_HANDOVERS     30038
+#define SIM_HANDOVERS     30038 // only exists in simulated version of xApp, handovers should actually be made directly via this xApp
 
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
@@ -220,6 +220,58 @@ struct PolicyHandler : public BaseReaderHandler<UTF8<>, PolicyHandler> {
 
 };
 
+struct HandoverHandler : public BaseReaderHandler<UTF8<>, HandoverHandler> {
+  unordered_map<string, int> cell_pred_down;
+  unordered_map<string, int> cell_pred_up;
+  std::string ue_id;
+  bool ue_id_found = false;
+  string curr_key = "";
+  string curr_value = "";
+  string serving_cell_id;
+  bool down_val = true;
+  bool Null() {  return true; }
+  bool Bool(bool b) {  return true; }
+  bool Int(int i) {  return true; }
+  bool Uint(unsigned u) {
+    // Currently, we assume the first cell in the prediction message is the serving cell
+    if ( serving_cell_id.empty() ) {
+      serving_cell_id = curr_key;
+    }
+
+    if (down_val) {
+      cell_pred_down[curr_key] = u;
+      down_val = false;
+    } else {
+      cell_pred_up[curr_key] = u;
+      down_val = true;
+    }
+
+    return true;
+
+  }
+  bool Int64(int64_t i) {  return true; }
+  bool Uint64(uint64_t u) {  return true; }
+  bool Double(double d) {  return true; }
+  bool String(const char* str, SizeType length, bool copy) {
+
+    return true;
+  }
+  bool StartObject() {  return true; }
+  bool Key(const char* str, SizeType length, bool copy) {
+    if (!ue_id_found) {
+
+      ue_id = str;
+      ue_id_found = true;
+    } else {
+      curr_key = str;
+    }
+    return true;
+  }
+  bool EndObject(SizeType memberCount) {  return true; }
+  bool StartArray() {  return true; }
+  bool EndArray(SizeType elementCount) {  return true; }
+};
+
 struct PredictionHandler : public BaseReaderHandler<UTF8<>, PredictionHandler> {
   unordered_map<string, int> cell_pred_down;
   unordered_map<string, int> cell_pred_up;
@@ -298,7 +350,7 @@ struct AnomalyHandler : public BaseReaderHandler<UTF8<>, AnomalyHandler> {
 struct TrafficSituationHandler : public BaseReaderHandler<UTF8<>, TrafficSituationHandler> {
   /*
     Assuming we receive the following payload from TM
-    <json>
+    [{"uid": "RU_0", "sit": "LOW_TRAFFIC"}, {"uid": "RU_1", "sit": "LOW_TRAFFIC"}, ...]
   */
   vector<string> investigate_RUs;
   string curr_key = "";
@@ -309,7 +361,7 @@ struct TrafficSituationHandler : public BaseReaderHandler<UTF8<>, TrafficSituati
   }
 
   bool String(const Ch* str, SizeType len, bool copy) {
-    // We are only interested in the "RU-uid"
+    // We are only interested in the "RU-uid" (actually want the situation type also, idk how to get it)
     if ( curr_key.compare("uid") == 0 ) {
       investigate_RUs.push_back( str );
     }
@@ -756,6 +808,8 @@ void handover_prediction_callback( Message& mbuf, int mtype, int subid, int len,
   cout << "[INFO] Prediction Callback got a message, type=" << mtype << ", length=" << len << "\n";
   cout << "[INFO] Payload is " << json << endl;
 
+  return; //scarey :(
+
   PredictionHandler handler;
   try {
     Reader reader;
@@ -887,6 +941,59 @@ void send_investigation_request( vector<string> rus_to_investigate ) {
   }
 
   string message_body = "{\"RUPredictionSet\": " + RU_list + "}";
+
+  send_payload = msg->Get_payload(); // direct access to payload
+  snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
+
+  plen = strlen( (char *)send_payload.get() );
+
+  //cout << "[INFO] Prediction Request length=" << plen << ", payload=" << send_payload.get() << endl;
+
+  // payload updated in place, nothing to copy from, so payload parm is nil
+  if ( ! msg->Send_msg( HP_INVESTIGATE, Message::NO_SUBID, plen, NULL )) { // msg type 30036
+    fprintf( stderr, "[ERROR] send failed: %d\n", msg->Get_state() );
+  }
+
+  else {
+    cout << "[INFO] Successfully sent message containing RUs to HP-xApp" << endl;
+  }
+}
+
+/*
+  Send list of handover procedures to TM-xApp for it to perform handovers
+  inside simulated network
+
+  (In production, this function should instead send handover requests
+  to each individual relevant RU)
+*/
+void send_handover_decisions( vector<string> handover_decisions ) {
+  std::unique_ptr<Message> msg;
+  Msg_component payload;           // special type of unique pointer to the payload
+
+  int sz;
+  int i;
+  size_t plen;
+  Msg_component send_payload;
+
+  msg = xfw->Alloc_msg( 2048 );
+
+  sz = msg->Get_available_size();  // we'll reuse a message if we received one back; ensure it's big enough
+  if( sz < 2048 ) {
+    fprintf( stderr, "[ERROR] message returned did not have enough size: %d [%d]\n", sz, i );
+    exit( 1 );
+  }
+
+  string RU_list = "[";
+
+  for (int i = 0; i < handover_decisions.size(); i++) {
+    if (i == handover_decisions.size() - 1) {
+      RU_list = RU_list + "\"" + handover_decisions.at(i) + "\"]";
+    } else {
+      RU_list = RU_list + "\"" + handover_decisions.at(i) + "\"" + ",";
+    }
+  }
+
+  string message_body = "{\"Handovers\": " + RU_list + "}";
 
   send_payload = msg->Get_payload(); // direct access to payload
   snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
@@ -1042,9 +1149,9 @@ extern int main( int argc, char** argv ) {
   fprintf( stderr, "[INFO] listening on port %s\n", port );
   xfw = std::unique_ptr<Xapp>( new Xapp( port, true ) );
 
-  xfw->Add_msg_cb( A1_POLICY_REQ, policy_callback, NULL );          // Register a callback function for msg type 20010
-  xfw->Add_msg_cb( HP_HANDOVERS, handover_prediction_callback, NULL );  // msg type 30002
-  xfw->Add_msg_cb( TM_SIT_FOUND, tm_callback, NULL );               // msg type 30034
+  xfw->Add_msg_cb( A1_POLICY_REQ, policy_callback, NULL );              // Register a callback function for msg type 20010
+  xfw->Add_msg_cb( HP_HANDOVERS, handover_prediction_callback, NULL );  // msg type 30037
+  xfw->Add_msg_cb( TM_SIT_FOUND, tm_callback, NULL );                   // msg type 30034
 
   xfw->Run( nthreads );
 
