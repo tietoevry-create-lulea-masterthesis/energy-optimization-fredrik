@@ -55,6 +55,9 @@ class DATABASE(object):
             time.sleep(120)
 
     def read_ru_data(self):
+        """
+        Tries to read data on each RU, replaces self.data if successful
+        """
         self.data = None
         query = 'select * from sim_RUs where time>now()-10s' # hardcoded select that takes all RU writes from last 10
         result = self.query_basic(query)
@@ -64,6 +67,9 @@ class DATABASE(object):
             self.data = result['sim_RUs']
 
     def read_ue_data(self, ue):
+        """
+        Tries to read data from database regarding a given UE via its UID, replaces self.data if successful
+        """
         self.data = None
         query = 'select * from sim_UEs where time>now()-1h and uid="' + ue + '"' # hardcoded select that takes all writes for a specific UE (assuming the last relevant data point was from 1 hour ago)
         result = self.query_basic(query)

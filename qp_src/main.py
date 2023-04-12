@@ -130,7 +130,8 @@ def predict_handovers(payload):
 
             # loop through and gather data on each UE to find closest RUs
             for ue in conn_list:
-                latest_ue_entry = db.read_ue_data(ue).tail(1)
+                db.read_ue_data(ue)
+                latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
                 it1 = "ru_close_"
                 it2 = "ru_close_dist_"
                 # look through all RUs except closest RU

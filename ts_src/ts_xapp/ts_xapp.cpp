@@ -750,14 +750,7 @@ void prediction_callback( Message& mbuf, int mtype, int subid, int len, Msg_comp
   }
 }
 
-/// @brief Legally distinct (not at all) version from the prediction_callback above
-/// @param mbuf idk
-/// @param mtype idk
-/// @param subid idk
-/// @param len idk
-/// @param payload idk
-/// @param data idk
-void traffic_investigation_callback( Message& mbuf, int mtype, int subid, int len, Msg_component payload,  void* data ) {
+void handover_prediction_callback( Message& mbuf, int mtype, int subid, int len, Msg_component payload,  void* data ) {
   string json ((char *)payload.get(), len); // RMR payload might not have a nil terminanted char
 
   cout << "[INFO] Prediction Callback got a message, type=" << mtype << ", length=" << len << "\n";
@@ -1050,7 +1043,7 @@ extern int main( int argc, char** argv ) {
   xfw = std::unique_ptr<Xapp>( new Xapp( port, true ) );
 
   xfw->Add_msg_cb( A1_POLICY_REQ, policy_callback, NULL );          // Register a callback function for msg type 20010
-  xfw->Add_msg_cb( TS_QOE_PREDICTION, prediction_callback, NULL );  // msg type 30002
+  xfw->Add_msg_cb( HP_HANDOVERS, handover_prediction_callback, NULL );  // msg type 30002
   xfw->Add_msg_cb( TM_SIT_FOUND, tm_callback, NULL );               // msg type 30034
 
   xfw->Run( nthreads );
