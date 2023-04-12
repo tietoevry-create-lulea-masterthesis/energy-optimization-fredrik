@@ -792,6 +792,57 @@ void prediction_callback( Message& mbuf, int mtype, int subid, int len, Msg_comp
   }
 }
 
+/*
+  Send list of handover procedures to TM-xApp for it to perform handovers
+  inside simulated network
+
+  (In production, this function should instead send handover requests
+  to each individual relevant RU)
+*/
+void send_handover_decisions( vector<HandoverStruct> handover_decisions ) {
+  std::unique_ptr<Message> msg;
+  Msg_component payload;           // special type of unique pointer to the payload
+
+  int sz;
+  int i;
+  size_t plen;
+  Msg_component send_payload;
+
+  msg = xfw->Alloc_msg( 2048 );
+
+  sz = msg->Get_available_size();  // we'll reuse a message if we received one back; ensure it's big enough
+  if( sz < 2048 ) {
+    fprintf( stderr, "[ERROR] message returned did not have enough size: %d [%d]\n", sz, i );
+    exit( 1 );
+  }
+
+  // Final handover list should assume the following format:
+  // {"Handovers":["UE_1,RU_1,RU_2", "UE_2,RU_3,RU_4", ...]}
+  string handover_list = "[";
+
+  for (int i = 0; i < handover_decisions.size(); i++) {
+    if (i == handover_decisions.size() - 1) {
+      handover_list = handover_list + "\"" + handover_decisions.at(i).handover() + "\"]";
+    } else {
+      handover_list = handover_list + "\"" + handover_decisions.at(i).handover() + "\"" + ",";
+    }
+  }
+
+  string message_body = "{\"Handovers\": " + handover_list + "}";
+
+  send_payload = msg->Get_payload(); // direct access to payload
+  snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
+
+  plen = strlen( (char *)send_payload.get() );
+
+  cout << "[INFO] Handover Decisions length=" << plen << ", payload=" << send_payload.get() << endl;
+
+  // payload updated in place, nothing to copy from, so payload parm is nil
+  if ( ! msg->Send_msg( SIM_HANDOVERS, Message::NO_SUBID, plen, NULL )) { // msg type 30036
+    fprintf( stderr, "[ERROR] send failed: %d\n", msg->Get_state() );
+  }
+}
+
 void handover_prediction_callback( Message& mbuf, int mtype, int subid, int len, Msg_component payload,  void* data ) {
   string json ((char *)payload.get(), len); // RMR payload might not have a nil terminanted char
 
@@ -897,57 +948,6 @@ void send_investigation_request( vector<string> rus_to_investigate ) {
 
   else {
     cout << "[INFO] Successfully sent message containing RUs to HP-xApp" << endl;
-  }
-}
-
-/*
-  Send list of handover procedures to TM-xApp for it to perform handovers
-  inside simulated network
-
-  (In production, this function should instead send handover requests
-  to each individual relevant RU)
-*/
-void send_handover_decisions( vector<HandoverStruct> handover_decisions ) {
-  std::unique_ptr<Message> msg;
-  Msg_component payload;           // special type of unique pointer to the payload
-
-  int sz;
-  int i;
-  size_t plen;
-  Msg_component send_payload;
-
-  msg = xfw->Alloc_msg( 2048 );
-
-  sz = msg->Get_available_size();  // we'll reuse a message if we received one back; ensure it's big enough
-  if( sz < 2048 ) {
-    fprintf( stderr, "[ERROR] message returned did not have enough size: %d [%d]\n", sz, i );
-    exit( 1 );
-  }
-
-  // Final handover list should assume the following format:
-  // {"Handovers":["UE_1,RU_1,RU_2", "UE_2,RU_3,RU_4", ...]}
-  string handover_list = "[";
-
-  for (int i = 0; i < handover_decisions.size(); i++) {
-    if (i == handover_decisions.size() - 1) {
-      handover_list = handover_list + "\"" + handover_decisions.at(i).handover() + "\"]";
-    } else {
-      handover_list = handover_list + "\"" + handover_decisions.at(i).handover() + "\"" + ",";
-    }
-  }
-
-  string message_body = "{\"Handovers\": " + handover_list + "}";
-
-  send_payload = msg->Get_payload(); // direct access to payload
-  snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
-
-  plen = strlen( (char *)send_payload.get() );
-
-  cout << "[INFO] Handover Decisions length=" << plen << ", payload=" << send_payload.get() << endl;
-
-  // payload updated in place, nothing to copy from, so payload parm is nil
-  if ( ! msg->Send_msg( SIM_HANDOVERS, Message::NO_SUBID, plen, NULL )) { // msg type 30036
-    fprintf( stderr, "[ERROR] send failed: %d\n", msg->Get_state() );
   }
 }
 
