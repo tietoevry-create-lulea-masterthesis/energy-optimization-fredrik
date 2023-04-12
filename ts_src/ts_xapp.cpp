@@ -220,51 +220,41 @@ struct PolicyHandler : public BaseReaderHandler<UTF8<>, PolicyHandler> {
 
 };
 
+struct HandoverStruct {
+  string ue_id = "";
+  string from_ru = "";
+  string to_ru = "";
+
+  HandoverStruct(string ue_id, string handover_string) {
+    this->ue_id = ue_id;
+
+    // handover_string is in format "RU_1,RU_2" where RU_1 should become 'from_ru' and RU_2 should become 'to_ru'
+    int comma_index = handover_string.find(",");
+    from_ru = handover_string.substr(0, comma_index); // will take substring from 0 to index of ,
+    from_ru = handover_string.substr(comma_index + 1, handover_string.length()); // will take substring after ,
+  }
+
+  string handover() {
+    return this->ue_id + "," + this->from_ru + "," + this->to_ru;
+  }
+};
+
 struct HandoverHandler : public BaseReaderHandler<UTF8<>, HandoverHandler> {
-  unordered_map<string, int> cell_pred_down;
-  unordered_map<string, int> cell_pred_up;
-  std::string ue_id;
-  bool ue_id_found = false;
-  string curr_key = "";
-  string curr_value = "";
-  string serving_cell_id;
-  bool down_val = true;
+  vector<HandoverStruct> handovers;
   bool Null() {  return true; }
   bool Bool(bool b) {  return true; }
   bool Int(int i) {  return true; }
-  bool Uint(unsigned u) {
-    // Currently, we assume the first cell in the prediction message is the serving cell
-    if ( serving_cell_id.empty() ) {
-      serving_cell_id = curr_key;
-    }
-
-    if (down_val) {
-      cell_pred_down[curr_key] = u;
-      down_val = false;
-    } else {
-      cell_pred_up[curr_key] = u;
-      down_val = true;
-    }
-
-    return true;
-
-  }
+  bool Uint(unsigned u) { return true; }
   bool Int64(int64_t i) {  return true; }
   bool Uint64(uint64_t u) {  return true; }
   bool Double(double d) {  return true; }
   bool String(const char* str, SizeType length, bool copy) {
-
+    handovers.push_back( HandoverStruct(curr_key, str) );
     return true;
   }
   bool StartObject() {  return true; }
   bool Key(const char* str, SizeType length, bool copy) {
-    if (!ue_id_found) {
-
-      ue_id = str;
-      ue_id_found = true;
-    } else {
-      curr_key = str;
-    }
+    curr_key = str;
     return true;
   }
   bool EndObject(SizeType memberCount) {  return true; }
@@ -808,9 +798,7 @@ void handover_prediction_callback( Message& mbuf, int mtype, int subid, int len,
   cout << "[INFO] Prediction Callback got a message, type=" << mtype << ", length=" << len << "\n";
   cout << "[INFO] Payload is " << json << endl;
 
-  return; //scarey :(
-
-  PredictionHandler handler;
+  HandoverHandler handler;
   try {
     Reader reader;
     StringStream ss(json.c_str());
@@ -819,54 +807,7 @@ void handover_prediction_callback( Message& mbuf, int mtype, int subid, int len,
     cout << "[ERROR] Got an exception on stringstream read parse\n";
   }
 
-  // We are only considering download throughput
-  unordered_map<string, int> throughput_map = handler.cell_pred_down;
-
-  // Decision about CONTROL message
-  // (1) Identify UE Id in Prediction message
-  // (2) Iterate through Prediction message.
-  //     If one of the cells has a higher throughput prediction than serving cell, send a CONTROL request
-  //     We assume the first cell in the prediction message is the serving cell
-
-  int serving_cell_throughput = 0;
-  int highest_throughput = 0;
-  string highest_throughput_cell_id;
-
-  // Getting the current serving cell throughput prediction
-  auto cell = throughput_map.find( handler.serving_cell_id );
-  serving_cell_throughput = cell->second;
-
-   // Iterating to identify the highest throughput prediction
-  for (auto map_iter = throughput_map.begin(); map_iter != throughput_map.end(); map_iter++) {
-
-    string curr_cellid = map_iter->first;
-    int curr_throughput = map_iter->second;
-
-    if ( highest_throughput < curr_throughput ) {
-      highest_throughput = curr_throughput;
-      highest_throughput_cell_id = curr_cellid;
-    }
-
-  }
-
-  float thresh = 0;
-  if( downlink_threshold > 0 ) {  // we also take into account the threshold in A1 policy type 20008
-    thresh = serving_cell_throughput * (downlink_threshold / 100.0);
-  }
-
-  if ( highest_throughput > ( serving_cell_throughput + thresh ) ) {
-
-    // sending a control request message
-    if ( ts_control_api == TsControlApi::REST ) {
-      send_rest_control_request( handler.ue_id, handler.serving_cell_id, highest_throughput_cell_id );
-    } else {
-      send_grpc_control_request( handler.ue_id, highest_throughput_cell_id );
-    }
-
-  } else {
-    cout << "[INFO] The current serving cell \"" << handler.serving_cell_id << "\" is the best one" << endl;
-  }
-
+  send_handover_decisions(handler.handovers);
 }
 
 void send_prediction_request( vector<string> ues_to_predict ) {
@@ -966,7 +907,7 @@ void send_investigation_request( vector<string> rus_to_investigate ) {
   (In production, this function should instead send handover requests
   to each individual relevant RU)
 */
-void send_handover_decisions( vector<string> handover_decisions ) {
+void send_handover_decisions( vector<HandoverStruct> handover_decisions ) {
   std::unique_ptr<Message> msg;
   Msg_component payload;           // special type of unique pointer to the payload
 
@@ -983,27 +924,29 @@ void send_handover_decisions( vector<string> handover_decisions ) {
     exit( 1 );
   }
 
-  string RU_list = "[";
+  // Final handover list should assume the following format:
+  // {"Handovers":["UE_1,RU_1,RU_2", "UE_2,RU_3,RU_4", ...]}
+  string handover_list = "[";
 
   for (int i = 0; i < handover_decisions.size(); i++) {
     if (i == handover_decisions.size() - 1) {
-      RU_list = RU_list + "\"" + handover_decisions.at(i) + "\"]";
+      handover_list = handover_list + "\"" + handover_decisions.at(i).handover() + "\"]";
     } else {
-      RU_list = RU_list + "\"" + handover_decisions.at(i) + "\"" + ",";
+      handover_list = handover_list + "\"" + handover_decisions.at(i).handover() + "\"" + ",";
     }
   }
 
-  string message_body = "{\"Handovers\": " + RU_list + "}";
+  string message_body = "{\"Handovers\": " + handover_list + "}";
 
   send_payload = msg->Get_payload(); // direct access to payload
   snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
 
   plen = strlen( (char *)send_payload.get() );
 
-  cout << "[INFO] Prediction Request length=" << plen << ", payload=" << send_payload.get() << endl;
+  cout << "[INFO] Handover Decisions length=" << plen << ", payload=" << send_payload.get() << endl;
 
   // payload updated in place, nothing to copy from, so payload parm is nil
-  if ( ! msg->Send_msg( HP_INVESTIGATE, Message::NO_SUBID, plen, NULL )) { // msg type 30036
+  if ( ! msg->Send_msg( SIM_HANDOVERS, Message::NO_SUBID, plen, NULL )) { // msg type 30036
     fprintf( stderr, "[ERROR] send failed: %d\n", msg->Get_state() );
   }
 }

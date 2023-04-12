@@ -43,6 +43,14 @@ def entry(self):
     schedule.every(5).seconds.do(predict, self)
     while True:
         schedule.run_pending()
+        print("also doing reading of rmr :DD")
+        for (summary, sbuf) in self.rmr_get_messages():
+            # summary is a dict that contains bytes so we can't use json.dumps on it
+            # so we have no good way to turn this into a string to use the logger unfortunately
+            # print is more "verbose" than the ric logger
+            # if you try to log this you will get: TypeError: Object of type bytes is not JSON serializable
+            print("[INFO] Incoming message: ".format(summary))
+            self.rmr_free(sbuf)
 
 
 def load_model():
