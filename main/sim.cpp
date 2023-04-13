@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <chrono>
 #include <ctime>
+#include <vector>
 #include <cmath>
 #include <algorithm>
 #include "sim.h"
@@ -44,6 +45,8 @@ bool handover(string ue_uid, int from_RU, int to_RU)
     // Calc new load for each RU
     sim_RUs[from_RU].set_alloc_PRB(from_RU);
     sim_RUs[to_RU].set_alloc_PRB(to_RU);
+
+    cout << "Moved " + ue_uid + " from RU_" << from_RU << " to RU_" << to_RU << endl;
 
     return true;
 }
@@ -115,9 +118,26 @@ string stringify_connected_ues(int ru_index)
     {
         ue_string += ue.get_UID() + ",";
     }
-    
+
     return ue_string;
 }
+
+struct HandoverPoint
+{
+    int decision_no;
+    string handover_decisions;
+
+    HandoverPoint(string fields)
+    {
+        // find a good way to separate fields decision_no and handover_decisions for inserting in struct
+    }
+
+    void execute_handovers()
+    {
+        // separate ue uid and ru numbers from handover_decisions string
+        // and run handover(ue_uid, ru_1, ru_2) on each
+    }
+};
 
 void *sim_loop(void *arg)
 {
@@ -139,6 +159,8 @@ void *sim_loop(void *arg)
         influxdb->write(ue_point.addTag("uid", ue.get_UID())); // weird workaround, easiest way to write something that is a Point&&
     }
 
+    int latest_decision_no = 0; // keeps track of ID of latest handover decision that was treated, should probably only increase in value
+
     while (true)
     {
         // Loop through each RU and simulate power consumption + connections
@@ -153,8 +175,17 @@ void *sim_loop(void *arg)
                                 .addField("p_tot", sim_RUs[i].get_p_tot())
                                 .addField("connections", stringify_connected_ues(i)));
         }
-        
 
         cout << "written all RU points\n";
+
+        vector<influxdb::Point> handovers = influxdb->query("select * from handovers");
+        for (auto &&h : handovers)
+        {
+            HandoverPoint handover_point = HandoverPoint(h.getFields());
+            if (handover_point.decision_no > latest_decision_no) {
+                latest_decision_no = handover_point.decision_no;
+                handover_point.execute_handovers();
+            }
+        }
     }
 }
