@@ -43,13 +43,12 @@ def entry(self):
     schedule.every(5).seconds.do(predict, self)
     while True:
         schedule.run_pending()
-        print("also doing reading of rmr :DD")
         for (summary, sbuf) in self.rmr_get_messages():
             # summary is a dict that contains bytes so we can't use json.dumps on it
             # so we have no good way to turn this into a string to use the logger unfortunately
             # print is more "verbose" than the ric logger
             # if you try to log this you will get: TypeError: Object of type bytes is not JSON serializable
-            print("[INFO] Incoming message: ".format(summary))
+            print("[INFO] Incoming message: {}".format(summary))
             self.rmr_free(sbuf)
 
 
@@ -157,10 +156,6 @@ def msg_to_ee(self, val):
     success = self.rmr_send(val, 30034) # TM_SIT_FOUND, NOTE !!!!! <---- NEEDS SETTING UP IN ROUTING TABLE IN FOLDER WHERE xApp AND DOCKERFILE IS CONTAINED
     if success:
         logger.info(" Message to EE: message sent Successfully")
-    # rmr receive to get the acknowledgement message from the traffic steering.
-    for (summary, sbuf) in self.rmr_get_messages():
-        logger.info("Received acknowldgement from EE (TM_SIT_ACK): {}".format(summary))
-        self.rmr_free(sbuf)
 
 
 def connectdb(thread=False):

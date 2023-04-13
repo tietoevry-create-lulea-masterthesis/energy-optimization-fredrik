@@ -72,7 +72,7 @@
 #define TS_ANOMALY_ACK			  30004
 
 #define TM_SIT_FOUND		  30034
-#define TM_SIT_ACK			  30035
+// #define TM_SIT_ACK			  30035 // bad idea to use, unless for debugging
 
 #define HP_INVESTIGATE    30036
 #define HP_HANDOVERS      30037
@@ -989,7 +989,7 @@ void tm_callback( Message& mbuf, int mtype, int subid, int len, Msg_component pa
   reader.Parse(ss,handler);
 
   // returns an ACK to the TM xApp
-  mbuf.Send_response( TM_SIT_ACK, Message::NO_SUBID, len, nullptr );  // msg type 30035
+  //mbuf.Send_response( TM_SIT_ACK, Message::NO_SUBID, len, nullptr );  // msg type 30035
 
   send_investigation_request(handler.investigate_RUs);
 }
