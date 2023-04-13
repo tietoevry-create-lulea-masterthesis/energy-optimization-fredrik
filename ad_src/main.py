@@ -44,16 +44,12 @@ def entry(self):
     while True:
         schedule.run_pending()
         for (summary, sbuf) in self.rmr_get_messages():
-            # summary is a dict that contains bytes so we can't use json.dumps on it
-            # so we have no good way to turn this into a string to use the logger unfortunately
-            # print is more "verbose" than the ric logger
-            # if you try to log this you will get: TypeError: Object of type bytes is not JSON serializable
             print("[INFO] Incoming message: {}".format(summary))
-            print("this should be a dict:", type(summary))
             if (summary["message type"] == 30038):
-                print("payload:", summary["payload"])
-                print("payload:", type(summary["payload"]))
-                db.write_handovers(summary["payload"]["handovers"]) # find a way to send handover string
+                # Message will arrive in the format:
+                # b'{"handovers": ["UE_5,RU_61,RU_52","UE_43,RU_61,RU_52","UE_15,RU_62,RU_52","UE_65,RU_62,RU_52"]}'
+                handovers = json.loads(summary["payload"].decode()["handovers"]) # decode payload to dict and extract handovers
+                db.write_handovers(handovers)
 
             self.rmr_free(sbuf)
 

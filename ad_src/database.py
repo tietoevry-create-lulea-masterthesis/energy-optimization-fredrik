@@ -101,7 +101,7 @@ class DATABASE(object):
 
         Parameters
         ----------
-        handovers: Array of strings, expected in the format "UE_1,RU_1,RU_2"
+        handovers: Array of strings, expected in the format ['UE_5,RU_61,RU_52', 'UE_43,RU_61,RU_52', 'UE_15,RU_62,RU_52', 'UE_65,RU_62,RU_52']
         """
         decisions_string = ""
 
