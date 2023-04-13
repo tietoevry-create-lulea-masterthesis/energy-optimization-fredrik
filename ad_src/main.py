@@ -48,8 +48,9 @@ def entry(self):
             if (summary["message type"] == 30038):
                 # Message will arrive in the format:
                 # b'{"handovers": ["UE_5,RU_61,RU_52","UE_43,RU_61,RU_52","UE_15,RU_62,RU_52","UE_65,RU_62,RU_52"]}'
-                handovers = json.loads(summary["payload"].decode()["handovers"]) # decode payload to dict and extract handovers
-                db.write_handovers(handovers)
+                pl_json = json.loads(summary["payload"].decode()) # decode payload to dict
+                print("handovers: ", type(pl_json), pl_json)
+                db.write_handovers(pl_json["handovers"]) # send handover string for writing
 
             self.rmr_free(sbuf)
 
