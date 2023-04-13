@@ -15,7 +15,7 @@
 # ==================================================================================
 import time
 import pandas as pd
-from influxdb import DataFrameClient
+from influxdb import DataFrameClient, InfluxDBClient
 from configparser import ConfigParser
 from mdclogpy import Logger
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
@@ -58,6 +58,8 @@ class DATABASE(object):
         self.ssl = ssl
         self.dbname = dbname
         self.client = None
+        self.write_client = None # uses InfluxDBClient instead of DataFrameClient, which makes for easier writes
+        self.decision_no = 0 # init decision_no to 0
         self.config()
 
     def connect(self):
@@ -66,6 +68,7 @@ class DATABASE(object):
 
         try:
             self.client = DataFrameClient(self.host, port=self.port, username=self.user, password=self.password, path=self.path, ssl=self.ssl, database=self.dbname, verify_ssl=self.ssl)
+            self.write_client = InfluxDBClient(self.host, port=self.port, username=self.user, password=self.password, path=self.path, ssl=self.ssl, database=self.dbname, verify_ssl=self.ssl)
             version = self.client.ping()
             logger.info("Connected to Influx Database, InfluxDB version : {}".format(version))
             #logger.info("List of all databases: " + str(self.client.get_list_database())) # debug
@@ -92,6 +95,26 @@ class DATABASE(object):
         #print(result)
         if result and len(result['sim_RUs']) != 0:
             self.data = result['sim_RUs']
+
+    def write_handovers(self, handovers):
+        """Writes all handover decisions received by EE-xApp to database (only for use in RAN simulation)
+
+        Parameters
+        ----------
+        handovers: Array of strings, expected in the format "UE_1,RU_1,RU_2"
+        """
+        decisions_string = ""
+
+        for s in handovers:
+            decisions_string += s +":"
+        
+        try:
+            self.write_client.write_points([{"measurement":"handovers", "fields":
+                                             {"decisions":decisions_string, "decision_no":self.decision_no}}])
+            self.decision_no += 1
+        except (RequestException, InfluxDBClientError, InfluxDBServerError) as e:
+            logger.error('Failed to send decisions to influxdb')
+            print(e)
 
     def write_anomaly(self, df, meas='AD'):
         """Write data method for a given measurement

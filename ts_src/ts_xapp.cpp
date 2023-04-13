@@ -231,7 +231,7 @@ struct HandoverStruct {
     // handover_string is in format "RU_1,RU_2" where RU_1 should become 'from_ru' and RU_2 should become 'to_ru'
     int comma_index = handover_string.find(",");
     from_ru = handover_string.substr(0, comma_index); // will take substring from 0 to index of ,
-    from_ru = handover_string.substr(comma_index + 1, handover_string.length()); // will take substring after ,
+    to_ru = handover_string.substr(comma_index + 1, handover_string.length()); // will take substring after ,
   }
 
   string handover() {
@@ -829,7 +829,7 @@ void send_handover_decisions( vector<HandoverStruct> handover_decisions ) {
     }
   }
 
-  string message_body = "{\"Handovers\": " + handover_list + "}";
+  string message_body = "{\"handovers\": " + handover_list + "}";
 
   send_payload = msg->Get_payload(); // direct access to payload
   snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
@@ -859,6 +859,7 @@ void handover_prediction_callback( Message& mbuf, int mtype, int subid, int len,
     cout << "[ERROR] Got an exception on stringstream read parse\n";
   }
 
+  // do logic on handler.handovers to find optimal handover subset
   send_handover_decisions(handler.handovers);
 }
 

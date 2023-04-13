@@ -49,6 +49,12 @@ def entry(self):
             # print is more "verbose" than the ric logger
             # if you try to log this you will get: TypeError: Object of type bytes is not JSON serializable
             print("[INFO] Incoming message: {}".format(summary))
+            print("this should be a dict:", type(summary))
+            if (summary["message type"] == 30038):
+                print("payload:", summary["payload"])
+                print("payload:", type(summary["payload"]))
+                db.write_handovers(summary["payload"]["handovers"]) # find a way to send handover string
+
             self.rmr_free(sbuf)
 
 
