@@ -129,16 +129,57 @@ struct HandoverPoint
 
     HandoverPoint(string fields)
     {
-        // fields string arrives in format decisions=UE_5,RU_61,RU_52:UE_43,RU_61,RU_52:UE_15,RU_62,RU_52:UE_65,RU_62,RU_52:decision_no=18
-        /* int comma_index = handover_string.find(",");
-        from_ru = handover_string.substr(0, comma_index);                          // will take substring from 0 to index of ,
-        to_ru = handover_string.substr(comma_index + 1, handover_string.length()); // will take substring after , */
+        // fields string arrives in format: decisions=UE_5,RU_61,RU_52:UE_43,RU_61,RU_52:UE_15,RU_62,RU_52:UE_65,RU_62,RU_52:decision_no=18
+        string decisions = deez.substr(deez.find("decisions=") + 10, deez.find(":decision_no") - 10);
+        string decision_no = deez.substr(deez.find("decision_no=") + 12);
+
+        this->decision_no = atoi(decision_no);
+        this->handover_decisions = decisions;
+    }
+
+    vector<string> separate_handovers()
+    {
+        // decisions string will look like: UE_5,RU_61,RU_52:UE_43,RU_61,RU_52:UE_15,RU_62,RU_52:UE_65,RU_62,RU_52
+        // where each handover decision is separated by a colon
+
+        string delimiter = ":";
+        vector<string> decision_list;
+
+        size_t pos = 0;
+        while ((pos = handover_decisions.find(delimiter)) != string::npos)
+        {
+            decision_list.push_back(handover_decisions.substr(0, pos));
+            handover_decisions.erase(0, pos + delimiter.length());
+        }
+
+        return decision_list;
     }
 
     void execute_handovers()
     {
-        // separate ue uid and ru numbers from handover_decisions string
-        // and run handover(ue_uid, ru_1, ru_2) on each
+        vector<string> decision_list = separate_handovers();
+
+        for (auto &&d : decision_list)
+        {
+            // parses individual decisions (formatted like: UE_5,RU_61,RU_52) and outputs them into a vector so that
+            // components.at(0) holds the UE uid
+            // components.at(1) holds the from_RU uid
+            // components.at(2) holds the to_RU uid
+
+            string delimiter = ",";
+            vector<string> components;
+
+            size_t pos = 0;
+            while ((pos = d.find(delimiter)) != string::npos)
+            {
+                components.push_back(d.substr(0, pos));
+                d.erase(0, pos + delimiter.length());
+            }
+
+            if (!handover(components.at(0), atoi(components.at(1).substr(3)), atoi(components.at(2).substr(3)))) {
+                cout << "ERROR while handing over " + components.at(0) << endl;
+            }
+        }
     }
 };
 

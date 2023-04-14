@@ -65,45 +65,11 @@ extern int main(int argc, char **argv)
     {
         sim_RUs[i].set_alloc_PRB(calc_alloc_PRB(i));
     }
-    
-    
-
-    /* cout << "Connections to RU_52: \n";
-    for (auto &&i : RU_conn[52])
-    {
-        const std::map<std::string, float> dmap = i.get_dist_map();
-        cout << i.get_UID() << ", entries: " << dmap.size() << "\n";
-        for (auto &&val : dmap)
-        {
-            cout << val.first << ", dist: " << val.second << "\n";
-        }
-    } */
-    
-
-    // hand over via bool checks, to see if errors happen
-    /* if (!handover("UE_95", 0, 8)) {
-        cout << "ERROR while handing over\n";
-    } */
 
     pthread_t sim_thread; // create the threrhede at some point ig
     pthread_create(&sim_thread, NULL, &sim_loop, NULL);
 
-    // Connects to database and inserts points for each RU and UE
-    //auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
-    
-    /* influxdb->write(influxdb::Point{"sim_RU"}
-    .addTag("uid", sim_RUs[52].get_UID())
-    .addField("connections", (int) RU_conn[52].size())
-    );
-
-    influxdb->write(influxdb::Point{"sim_UE"}
-    .addTag("uid", sim_UEs.front().get_UID())
-    .addField("closest RUs", (int) sim_UEs.front().get_dist_map().size())
-    ); */
-
-    // u most choose
-    //sim_loop(nullptr);    // enter loop forever, or
-    sleep(999);             // go 2 sleep forever (16 minutes)
+    sleep(999);             // go 2 sleep forever (should spawn UEs in a seeded manner instead)
     
     return 0;
 }
