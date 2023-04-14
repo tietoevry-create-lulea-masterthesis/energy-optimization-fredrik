@@ -129,7 +129,10 @@ struct HandoverPoint
 
     HandoverPoint(string fields)
     {
-        // find a good way to separate fields decision_no and handover_decisions for inserting in struct
+        // fields string arrives in format decisions=UE_5,RU_61,RU_52:UE_43,RU_61,RU_52:UE_15,RU_62,RU_52:UE_65,RU_62,RU_52:decision_no=18
+        /* int comma_index = handover_string.find(",");
+        from_ru = handover_string.substr(0, comma_index);                          // will take substring from 0 to index of ,
+        to_ru = handover_string.substr(comma_index + 1, handover_string.length()); // will take substring after , */
     }
 
     void execute_handovers()
@@ -161,7 +164,7 @@ void *sim_loop(void *arg)
 
     int latest_decision_no = 0; // keeps track of ID of latest handover decision that was treated, should probably only increase in value
 
-    while (true)
+    while (latest_decision_no < 5)
     {
         // Loop through each RU and simulate power consumption + connections
         for (size_t i = 0; i < RU_NUM; i++)
@@ -181,8 +184,10 @@ void *sim_loop(void *arg)
         vector<influxdb::Point> handovers = influxdb->query("select * from handovers");
         for (auto &&h : handovers)
         {
-            HandoverPoint handover_point = HandoverPoint(h.getFields());
-            if (handover_point.decision_no > latest_decision_no) {
+            h.floatsPrecision = 0;                                                     // makes parsing decision_no simpler, as it is an integer and would otherwise show up as 1.00000000
+            HandoverPoint handover_point = HandoverPoint(h.getTags() + h.getFields()); // for some reason influxDB thinks all fields with string values are tags
+            if (handover_point.decision_no > latest_decision_no)
+            {
                 latest_decision_no = handover_point.decision_no;
                 handover_point.execute_handovers();
             }
