@@ -28,6 +28,7 @@ bool handover(string ue_uid, int from_RU, int to_RU)
         if (ue.get_UID().compare(ue_uid) == 0)
         {
             ue_ptr = &ue;
+            break;
         }
     }
 
@@ -38,7 +39,7 @@ bool handover(string ue_uid, int from_RU, int to_RU)
         return false;
     }
 
-    // Remove UE from current RU and add to new RU
+    // Remove (THE CORRECT) UE from current RU and add to new RU
     RU_conn[from_RU].remove(*ue_ptr);
     RU_conn[to_RU].push_back(*ue_ptr);
 
@@ -46,7 +47,7 @@ bool handover(string ue_uid, int from_RU, int to_RU)
     sim_RUs[from_RU].set_alloc_PRB(from_RU);
     sim_RUs[to_RU].set_alloc_PRB(to_RU);
 
-    cout << "Moved " + ue_uid + " from RU_" << from_RU << " to RU_" << to_RU << endl;
+    cout << "Moved " + ue_ptr->get_UID() + " from RU_" << from_RU << " to RU_" << to_RU << endl;
 
     return true;
 }
@@ -130,10 +131,10 @@ struct HandoverPoint
     HandoverPoint(string fields)
     {
         // fields string arrives in format: decisions=UE_5,RU_61,RU_52:UE_43,RU_61,RU_52:UE_15,RU_62,RU_52:UE_65,RU_62,RU_52:decision_no=18
-        string decisions = deez.substr(deez.find("decisions=") + 10, deez.find(":decision_no") - 10);
-        string decision_no = deez.substr(deez.find("decision_no=") + 12);
+        string decisions = fields.substr(fields.find("decisions=") + 10, fields.find(":decision_no") - 10);
+        string decision_no = fields.substr(fields.find("decision_no=") + 12);
 
-        this->decision_no = atoi(decision_no);
+        this->decision_no = atoi(decision_no.c_str());
         this->handover_decisions = decisions;
     }
 
@@ -141,6 +142,8 @@ struct HandoverPoint
     {
         // decisions string will look like: UE_5,RU_61,RU_52:UE_43,RU_61,RU_52:UE_15,RU_62,RU_52:UE_65,RU_62,RU_52
         // where each handover decision is separated by a colon
+
+        //cout << "handovers: " << this->handover_decisions << endl;
 
         string delimiter = ":";
         vector<string> decision_list;
@@ -151,6 +154,13 @@ struct HandoverPoint
             decision_list.push_back(handover_decisions.substr(0, pos));
             handover_decisions.erase(0, pos + delimiter.length());
         }
+        decision_list.push_back(handover_decisions); // also add last element
+
+        /* cout << "separated handovers:" << endl;
+        for (auto &&h : decision_list)
+        {
+            cout << h << endl;
+        } */
 
         return decision_list;
     }
@@ -166,6 +176,8 @@ struct HandoverPoint
             // components.at(1) holds the from_RU uid
             // components.at(2) holds the to_RU uid
 
+            cout << "executing handover: " << d << endl;
+
             string delimiter = ",";
             vector<string> components;
 
@@ -175,8 +187,13 @@ struct HandoverPoint
                 components.push_back(d.substr(0, pos));
                 d.erase(0, pos + delimiter.length());
             }
+            components.push_back(d); // also add last element
 
-            if (!handover(components.at(0), atoi(components.at(1).substr(3)), atoi(components.at(2).substr(3)))) {
+            /* cout << "ue: " << components.at(0) << endl;
+            cout << "from_ru: " << components.at(1) << endl;
+            cout << "to_ru: " << components.at(2) << endl; */
+
+            if (!handover(components.at(0), atoi(components.at(1).substr(3).c_str()), atoi(components.at(2).substr(3).c_str()))) {
                 cout << "ERROR while handing over " + components.at(0) << endl;
             }
         }
@@ -205,7 +222,7 @@ void *sim_loop(void *arg)
 
     int latest_decision_no = 0; // keeps track of ID of latest handover decision that was treated, should probably only increase in value
 
-    while (latest_decision_no < 5)
+    while (true)
     {
         // Loop through each RU and simulate power consumption + connections
         for (size_t i = 0; i < RU_NUM; i++)
@@ -222,7 +239,8 @@ void *sim_loop(void *arg)
 
         cout << "written all RU points\n";
 
-        vector<influxdb::Point> handovers = influxdb->query("select * from handovers");
+        vector<influxdb::Point> handovers = influxdb->query("select * from handovers where time > now() - 10s");
+
         for (auto &&h : handovers)
         {
             h.floatsPrecision = 0;                                                     // makes parsing decision_no simpler, as it is an integer and would otherwise show up as 1.00000000
