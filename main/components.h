@@ -44,7 +44,7 @@ public:
 // RU entry for use in the dist_list in UE class
 struct RU_entry
 {
-    std::string ru_uid;
+    RU *ru;
     float sig_str;
 
     RU_entry()
@@ -53,8 +53,10 @@ struct RU_entry
         sig_str = INT32_MAX;
     }
 
-    RU_entry(std::string ru_uid, float sig_str) : ru_uid(ru_uid), sig_str(sig_str)
+    RU_entry(RU* ru, float sig_str)
     {
+        this->ru = ru;
+        this->sig_str = sig_str;
     }
 
     bool operator>(RU_entry const &e)

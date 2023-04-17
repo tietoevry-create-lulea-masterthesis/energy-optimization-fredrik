@@ -113,7 +113,7 @@ int calc_alloc_PRB(int ru_index)
     return alloc_PRB;
 }
 
-string find_closest_rus(UE *ue, int n_closest)
+string find_closest_rus(UE *ue)
 {
     RU_entry candidates[UE_CLOSEST_RUS];
     float signal_strength;
@@ -131,7 +131,7 @@ string find_closest_rus(UE *ue, int n_closest)
 
     ue->set_sig_arr(candidates);
 
-    return candidates[0].ru_uid;
+    return candidates[0].ru->get_UID();
 }
 
 string stringify_connected_ues(int ru_index)

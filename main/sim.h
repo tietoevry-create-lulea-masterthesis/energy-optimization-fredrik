@@ -31,11 +31,10 @@ float calc_sig_str(RU ru, UE ue);
 /// @return the number of allocated PRBs, will return 0 if no UEs are connected
 int calc_alloc_PRB(int ru_index);
 
-/// @brief Finds the n closest RUs to a given UE, and inserts these into the UE's dist_map
-/// @param ue the ue to find RUs and replace dist_map of
-/// @param n_closest The amount of nearby RUs to insert into the dist_map
+/// @brief Finds the n closest RUs to a given UE, and inserts these into the UE's sig_arr
+/// @param ue the ue to find RUs and replace sig_arr of
 /// @return Returns the closest RU, since that is probably the most interesting one
-std::string find_closest_rus(UE *ue, int n_closest);
+std::string find_closest_rus(UE *ue);
 
 string stringify_connected_ues(int ru_index);
 

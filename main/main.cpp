@@ -59,7 +59,7 @@ extern int main(int argc, char **argv)
     // Connect each UE to closest RU
     for (auto &&ue : sim_UEs)
     {
-        string closest = find_closest_rus(&ue, 5); // very idiotic and O(n) time for each UE
+        string closest = find_closest_rus(&ue); // O(n) time for each UE
         RU_conn[stoi(closest.substr(3))].push_back(ue);
     }
 
@@ -76,7 +76,20 @@ extern int main(int argc, char **argv)
     while (true) 
     {
         sleep(rand() % 5 + 5); // sleep for 5-10 seconds
-        sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}));
+        UE *spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)});
+
+        sim_UEs.push_back(spawn_ue);
+        find_closest_rus(&spawn_ue);
+
+        bool insuff_capacity = true;
+        for (size_t i = 0; i < UE_CLOSEST_RUS; i++)
+        {
+            // If the current RU has enough free PRBs to handle the spawned UE's demand, connect to it and break loop
+            if (spawn_ue->get_sig_arr()[i].ru->get_alloc_PRB() + spawn_ue->get_demand() < spawn_ue->get_sig_arr()[i].ru->get_num_PRB())
+            {
+                RU_conn[stoi(spawn_ue->get_sig_arr()[i].ru->get_UID().substr(3))].push_back(spawn_ue);
+            }
+        }
         i_ue++;
     }
     
