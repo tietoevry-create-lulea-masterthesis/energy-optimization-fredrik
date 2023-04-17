@@ -4,6 +4,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <string>
 #include "sim.h"
 #include <InfluxDBFactory.h>
 
@@ -52,7 +53,7 @@ bool handover(string ue_uid, int from_RU, int to_RU)
     return true;
 }
 
-float calc_dist(RU ru, UE ue)
+float calc_sig_str(RU ru, UE ue)
 {
     const float *ru_coords = ru.get_coords();
     const float *ue_coords = ue.get_coords();
@@ -65,11 +66,25 @@ float calc_dist(RU ru, UE ue)
     std::cout << ue_coords[0] << "\n";
     std::cout << ue_coords[1] << "\n"; */
 
-    float dist = sqrt(pow(ru_coords[0] - ue_coords[0], 2) + pow(ru_coords[1] - ue_coords[1], 2));
+    float sig_str = sqrt(pow(ru_coords[0] - ue_coords[0], 2) + pow(ru_coords[1] - ue_coords[1], 2)); // first, take distance from UE to RU
 
-    // std::cout << "dist: " << dist << "\n";
+    // then clamp distance differently depending on RU type (macro/micro) to form signal strength
+    RUType ruType = ru.getType();
 
-    return dist;
+    switch (ruType)
+    {
+    case macro:
+        sig_str = clamp(1 - sig_str / 2000, 0, 1); // max distance for a macro-RU is set to 2000 meters
+        break;
+
+    case micro:
+        sig_str = clamp(1 - sig_str / 500, 0, 1); // max distance for a micro-RU is set to 500 meters
+        break;
+    }
+
+    // std::cout << "sig_str: " << sig_str << "\n";
+
+    return sig_str;
 }
 
 int calc_alloc_PRB(int ru_index)
@@ -93,20 +108,20 @@ int calc_alloc_PRB(int ru_index)
 string find_closest_rus(UE *ue, int n_closest)
 {
     RU_entry candidates[UE_CLOSEST_RUS];
-    float dist;
+    float signal_strength;
     for (size_t i = 0; i < RU_NUM; i++)
     {
-        // Check if distance is less than RU furthest away
-        dist = calc_dist(sim_RUs[i], *ue);
-        if (dist < candidates[UE_CLOSEST_RUS - 1].dist)
+        // Check if signal strength is greater than RU with least signal strength
+        signal_strength = calc_sig_str(sim_RUs[i], *ue);
+        if (signal_strength > candidates[UE_CLOSEST_RUS - 1].sig_str)
         {
             // Swap last candidate with newfound RU and sort
-            candidates[UE_CLOSEST_RUS - 1] = RU_entry(sim_RUs[i].get_UID(), dist);
-            sort(begin(candidates), end(candidates));
+            candidates[UE_CLOSEST_RUS - 1] = RU_entry(sim_RUs[i].get_UID(), signal_strength);
+            sort(begin(candidates), end(candidates), greater<>());
         }
     }
 
-    ue->set_dist_arr(candidates);
+    ue->set_sig_arr(candidates);
 
     return candidates[0].ru_uid;
 }
@@ -121,6 +136,29 @@ string stringify_connected_ues(int ru_index)
     }
 
     return ue_string;
+}
+
+string stringify_sig_str_arr(UE *ue, bool dist = false)
+{
+    string arr_str = "";
+
+    if (dist)
+    {
+        for (auto &&s : ue->get_sig_arr())
+        {
+            arr_str += to_string(s.sig_str) + ",";
+        }
+    }
+
+    else
+    {
+        for (auto &&s : ue->get_sig_arr())
+        {
+            arr_str += to_string(s.ru_uid) + ",";
+        }
+    }
+
+    return arr_str;
 }
 
 struct HandoverPoint
@@ -143,7 +181,7 @@ struct HandoverPoint
         // decisions string will look like: UE_5,RU_61,RU_52:UE_43,RU_61,RU_52:UE_15,RU_62,RU_52:UE_65,RU_62,RU_52
         // where each handover decision is separated by a colon
 
-        //cout << "handovers: " << this->handover_decisions << endl;
+        // cout << "handovers: " << this->handover_decisions << endl;
 
         string delimiter = ":";
         vector<string> decision_list;
@@ -193,7 +231,8 @@ struct HandoverPoint
             cout << "from_ru: " << components.at(1) << endl;
             cout << "to_ru: " << components.at(2) << endl; */
 
-            if (!handover(components.at(0), atoi(components.at(1).substr(3).c_str()), atoi(components.at(2).substr(3).c_str()))) {
+            if (!handover(components.at(0), atoi(components.at(1).substr(3).c_str()), atoi(components.at(2).substr(3).c_str())))
+            {
                 cout << "ERROR while handing over " + components.at(0) << endl;
             }
         }
@@ -205,19 +244,14 @@ void *sim_loop(void *arg)
     auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
     influxdb->batchOf(100); // creates buffer for writes, only writes to database once 100 points of data have accumulated
 
-    // write all UE data to db (should be done along with each new UE popping up)
+    // write all UE data to db (should also be done along with each new UE popping up)
     for (auto &&ue : sim_UEs)
     {
-        auto ue_point = influxdb::Point{"sim_UEs"}
+        influxdb->write(influxdb::Point{"sim_UEs"}
                             .addField("demand", ue.get_demand());
-
-        for (size_t i = 0; i < UE_CLOSEST_RUS; i++)
-        {
-            ue_point.addTag("ru_close_" + to_string(i), ue.get_dist_arr()[i].ru_uid)
-                .addField("ru_close_dist_" + to_string(i), ue.get_dist_arr()[i].dist); // bad idea?
-        }
-
-        influxdb->write(ue_point.addTag("uid", ue.get_UID())); // weird workaround, easiest way to write something that is a Point&&
+                            .addField("near_RU", stringify_sig_str_arr(&ue)) // right? pointer???? maybe??
+                            .addField("near_RU_sig", stringify_sig_str_arr(&ue, true))
+                            .addTag("uid", ue.get_UID()));
     }
 
     int latest_decision_no = 0; // keeps track of ID of latest handover decision that was treated, should probably only increase in value

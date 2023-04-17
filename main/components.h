@@ -3,11 +3,18 @@
 #include <map>
 #include "constants.h"
 
+enum RUType
+{
+    macro,
+    micro
+};
+
 class RU
 {
 private:
     std::string uid;
     float coords[2];         // x, y coords
+    RUType type = micro;     // default: micro-RU
     int antennae = 4;        // default: 4T4R
     int bandwidth = 4000000; // default: 4 MHz
     int num_PRB;             // number of physical resource blocks, depends on the bandwidth
@@ -23,6 +30,7 @@ public:
 
     const std::string get_UID();
     const float *get_coords();
+    const RUType getType();
     const int get_num_PRB();
     const int get_alloc_PRB();
     float calc_delta_p();
@@ -35,20 +43,21 @@ public:
 struct RU_entry
 {
     std::string ru_uid;
-    float dist;
+    float sig_str;
 
-    RU_entry() {
+    RU_entry()
+    {
         ru_uid = "NULL";
-        dist = INT32_MAX;
+        sig_str = INT32_MAX;
     }
 
-    RU_entry(std::string ru_uid, float dist) : ru_uid(ru_uid), dist(dist)
+    RU_entry(std::string ru_uid, float sig_str) : ru_uid(ru_uid), sig_str(sig_str)
     {
     }
 
-    bool operator<(RU_entry const &e)
+    bool operator>(RU_entry const &e)
     {
-        return (this->dist < e.dist);
+        return (this->sig_str > e.sig_str);
     }
 };
 
@@ -58,8 +67,8 @@ private:
     std::string uid;
     float coords[2]; // x, y coords
 
-    int prb_demand = 2;                    // amount of physical resource blocks that the traffic of this UE demands
-    RU_entry dist_arr[UE_CLOSEST_RUS]; // array of n closest RUs
+    int prb_demand = 2;               // amount of physical resource blocks that the traffic of this UE demands
+    RU_entry sig_arr[UE_CLOSEST_RUS]; // array of n closest RUs
 
 public:
     UE(std::string uid, float coords[2]);
@@ -67,12 +76,12 @@ public:
     const std::string get_UID();
     const float *get_coords();
     const int get_demand();
-    const RU_entry *get_dist_arr();
+    const RU_entry *get_sig_arr();
 
     bool operator==(UE const &ue)
     {
         return (ue.uid.compare(this->uid) == 0);
     }
 
-    void set_dist_arr(RU_entry *new_dist_arr);
+    void set_sig_arr(RU_entry *new_sig_arr);
 };

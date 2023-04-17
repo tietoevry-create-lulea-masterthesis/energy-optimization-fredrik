@@ -138,17 +138,15 @@ def predict_handovers(payload):
                 for ue in conn_list:
                     db.read_ue_data(ue)
                     latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
-                    it1 = "ru_close_"
-                    it2 = "ru_close_dist_"
-                    # look through all RUs except closest RU
-                    for i in range(1, 5):
-                        # check if one of the close RUs is RU_52
-                        if (latest_ue_entry[it1 + str(i)][0] == "RU_52"):
-                            print("Found RU_52, dist: " + str(latest_ue_entry[it2 + str(i)][0]))
-
-                            # construct handover prediction
-                            # will look like "UE_1": "RU_61,RU_52"
-                            output[ue] = ru_uid + ",RU_52" 
+                    
+                    # see if RU_52 is in the array of nearby RUs, and is not already the closest
+                    if (latest_ue_entry["near_RU"].find("RU_52") > 0):
+                        # ok but finding signal strength is a little tougher, since u need index which depends on number of commas.
+                        # print("Found RU_52, signal strength: " + str(latest_ue_entry[][0]))
+                        
+                        # construct handover prediction
+                        # will look like "UE_1": "RU_61,RU_52"
+                        output[ue] = ru_uid + ",RU_52" 
 
     # return all handovers
     return json.dumps(output)

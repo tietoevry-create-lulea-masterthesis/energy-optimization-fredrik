@@ -37,6 +37,11 @@ const float *RU::get_coords()
     return this->coords;
 }
 
+const RUType RU::getType()
+{
+    return this->type;
+}
+
 const int RU::get_num_PRB()
 {
     return this->num_PRB;
@@ -99,15 +104,15 @@ const int UE::get_demand()
     return this->prb_demand;
 }
 
-const RU_entry *UE::get_dist_arr()
+const RU_entry *UE::get_sig_arr()
 {
-    return this->dist_arr;
+    return this->sig_arr;
 }
 
-void UE::set_dist_arr(RU_entry new_dist_arr[UE_CLOSEST_RUS])
+void UE::set_sig_arr(RU_entry new_sig_arr[UE_CLOSEST_RUS])
 {
     for (size_t i = 0; i < UE_CLOSEST_RUS; i++)
     {
-        this->dist_arr[i] = new_dist_arr[i];
+        this->sig_arr[i] = new_sig_arr[i];
     }
 }

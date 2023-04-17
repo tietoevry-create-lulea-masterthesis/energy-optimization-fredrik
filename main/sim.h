@@ -19,7 +19,7 @@ void print_ue_conn(int ru_index);
 /// @return true if handover is successful, false otherwise
 bool handover(std::string ue_uid, int from_RU, int to_RU);
 
-float calc_dist(RU ru, UE ue);
+float calc_sig_str(RU ru, UE ue);
 
 int calc_alloc_PRB(int ru_index);
 
@@ -28,5 +28,13 @@ int calc_alloc_PRB(int ru_index);
 /// @param n_closest The amount of nearby RUs to insert into the dist_map
 /// @return Returns the closest RU, since that is probably the most interesting one
 std::string find_closest_rus(UE *ue, int n_closest);
+
+string stringify_connected_ues(int ru_index);
+
+/// @brief Stringifies signal strength array in order to update database
+/// @param ue The UE to stringify the array of
+/// @param dist If false, returns a string containing the UID's of each of the closest RUs. If true, returns the signal strengths to each of the closest RUs
+/// @return A string dependent on the value of the dist bool.
+string stringify_sig_str_arr(UE *ue, bool dist = false);
 
 void *sim_loop(void *arg);
