@@ -30,7 +30,7 @@ public:
 
     const std::string get_UID();
     const float *get_coords();
-    const RUType getType();
+    const RUType get_type();
     const int get_num_PRB();
     const int get_alloc_PRB();
     float calc_delta_p();

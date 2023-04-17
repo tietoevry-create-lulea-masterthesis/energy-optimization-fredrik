@@ -37,7 +37,7 @@ const float *RU::get_coords()
     return this->coords;
 }
 
-const RUType RU::getType()
+const RUType RU::get_type()
 {
     return this->type;
 }

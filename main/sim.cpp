@@ -69,7 +69,7 @@ float calc_sig_str(RU ru, UE ue)
     float sig_str = sqrt(pow(ru_coords[0] - ue_coords[0], 2) + pow(ru_coords[1] - ue_coords[1], 2)); // first, take distance from UE to RU
 
     // then clamp distance differently depending on RU type (macro/micro) to form signal strength
-    RUType ruType = ru.getType();
+    RUType ruType = ru.get_type();
 
     switch (ruType)
     {
@@ -264,6 +264,7 @@ void *sim_loop(void *arg)
             sim_RUs[i].calc_delta_p(); // value gotten from delta_p is dependent on last update time and is not interesting
             influxdb->write(influxdb::Point{"sim_RUs"}
                                 .addTag("uid", sim_RUs[i].get_UID())
+                                .addTag("RU_type", sim_RUs[i].get_type())
                                 .addField("free_PRB", sim_RUs[i].get_num_PRB() - sim_RUs[i].get_alloc_PRB())
                                 .addField("current_load", (float)sim_RUs[i].get_alloc_PRB() / (float)sim_RUs[i].get_num_PRB())
                                 .addField("p", sim_RUs[i].get_p())
