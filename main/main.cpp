@@ -16,6 +16,8 @@ const float max_coord = 5000; // Determines the maximum x and y coordinate of th
 
 unsigned int seed = 42;
 
+int i_ue = 0; // iterator for UE uid's
+
 extern int main(int argc, char **argv)
 {
     srand(seed);
@@ -44,7 +46,8 @@ extern int main(int argc, char **argv)
     // Spawn UEs
     for (size_t i = 0; i < 100; i++)
     {
-        sim_UEs.push_back(*new UE("UE_" + to_string(i), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}));
+        sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}));
+        i_ue++;
     }
 
     // Debug RU placement
@@ -69,7 +72,13 @@ extern int main(int argc, char **argv)
     pthread_t sim_thread; // create the threrhede at some point ig
     pthread_create(&sim_thread, NULL, &sim_loop, NULL);
 
-    sleep(999);             // go 2 sleep forever (should spawn UEs in a seeded manner instead)
+    // For as long as simulation is running, keep instancing new, seeded UEs
+    while (true) 
+    {
+        sleep(rand() % 5 + 5); // sleep for 5-10 seconds
+        sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}));
+        i_ue++;
+    }
     
     return 0;
 }

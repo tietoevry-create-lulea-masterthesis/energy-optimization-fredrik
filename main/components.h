@@ -20,9 +20,11 @@ private:
     int num_PRB;             // number of physical resource blocks, depends on the bandwidth
     int alloc_PRB;           // number of physical resource blocks that have been allocated to UE
 
-    float p = 3;                                            // power consumption, dependent on current traffic load, default = sleep power consumption, 3 mW or smth
-    float p_tot = 0;                                        // total power consumption since t = 0
+    float p;                                                                               // power consumption, dependent on current traffic load, measured in mW
+    float p_tot = 0;                                                                       // total power consumption since t = 0, measured in mWs (milliwattsecond which is 0,001 J)
     std::chrono::_V2::system_clock::time_point last_meas_t; // time since last delta measurement of power consumption
+    
+    void calc_p();
 
 public:
     RU();
@@ -67,8 +69,10 @@ private:
     std::string uid;
     float coords[2]; // x, y coords
 
-    int prb_demand = 2;               // amount of physical resource blocks that the traffic of this UE demands
-    RU_entry sig_arr[UE_CLOSEST_RUS]; // array of n closest RUs
+    int prb_demand = 2;                                                                    // amount of physical resource blocks that the traffic of this UE demands
+    float timer = 60;                                                                      // time until UE expires, defaults to 60 seconds
+    RU_entry sig_arr[UE_CLOSEST_RUS];                                                      // array of n closest RUs
+    std::chrono::_V2::system_clock::time_point last_meas_t; // time since last timer decrement
 
 public:
     UE(std::string uid, float coords[2]);
@@ -77,6 +81,10 @@ public:
     const float *get_coords();
     const int get_demand();
     const RU_entry *get_sig_arr();
+
+    /// @brief Decrements the UE's timer by the time that's passed since last measurement
+    /// @return Returns true if resulting time after decrementing reaches zero or below, false otherwise
+    bool decrement_timer();
 
     bool operator==(UE const &ue)
     {

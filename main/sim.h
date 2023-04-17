@@ -19,8 +19,16 @@ void print_ue_conn(int ru_index);
 /// @return true if handover is successful, false otherwise
 bool handover(std::string ue_uid, int from_RU, int to_RU);
 
+/// @brief Removes a UE from the simulation
+/// @param ue the ue that should be removed
+/// @param ru_index the ru that the UE is currently connected to
+void remove_ue(UE *ue, int ru_index);
+
 float calc_sig_str(RU ru, UE ue);
 
+/// @brief Calculates the number of PRBs allocated to UEs for a given RU
+/// @param ru_index the index of the RU in the sim_RUs array
+/// @return the number of allocated PRBs, will return 0 if no UEs are connected
 int calc_alloc_PRB(int ru_index);
 
 /// @brief Finds the n closest RUs to a given UE, and inserts these into the UE's dist_map

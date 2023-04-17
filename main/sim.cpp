@@ -45,12 +45,19 @@ bool handover(string ue_uid, int from_RU, int to_RU)
     RU_conn[to_RU].push_back(*ue_ptr);
 
     // Calc new load for each RU
-    sim_RUs[from_RU].set_alloc_PRB(from_RU);
-    sim_RUs[to_RU].set_alloc_PRB(to_RU);
+    sim_RUs[from_RU].set_alloc_PRB(calc_alloc_PRB(from_RU));
+    sim_RUs[to_RU].set_alloc_PRB(calc_alloc_PRB(to_RU));
 
     cout << "Moved " + ue_ptr->get_UID() + " from RU_" << from_RU << " to RU_" << to_RU << endl;
 
     return true;
+}
+
+void remove_ue(UE *ue, int ru_index)
+{
+    sim_UEs.remove(ue);
+    RU_conn[ru_index].remove(ue); // pointer already?
+    sim_RUs[ru_index].set_alloc_PRB(calc_alloc_PRB(ru_index));
 }
 
 float calc_sig_str(RU ru, UE ue)
@@ -102,6 +109,7 @@ int calc_alloc_PRB(int ru_index)
         cout << "Allocated: " << sim_RUs[ru_index].get_alloc_PRB() << ", Available: " << sim_RUs[ru_index].get_num_PRB() << "\n";
     }
 
+    if (alloc_PRB == 2) alloc_PRB = 0; // if number of PRBs are still 2, no UEs connected, set alloc_PRB to 0, which should sleep the RU
     return alloc_PRB;
 }
 
@@ -261,7 +269,14 @@ void *sim_loop(void *arg)
         // Loop through each RU and simulate power consumption + connections
         for (size_t i = 0; i < RU_NUM; i++)
         {
-            sim_RUs[i].calc_delta_p(); // value gotten from delta_p is dependent on last update time and is not interesting
+            // calculate delta P and handle connected UEs
+            sim_RUs[i].calc_delta_p();
+            for (auto &&ue : RU_conn[i])
+            {
+                if (ue.decrement_timer()) remove_conn(ue, i);
+            }
+            
+            
             influxdb->write(influxdb::Point{"sim_RUs"}
                                 .addTag("uid", sim_RUs[i].get_UID())
                                 .addTag("RU_type", sim_RUs[i].get_type())
