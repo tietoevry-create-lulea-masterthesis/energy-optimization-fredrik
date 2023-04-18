@@ -17,14 +17,14 @@ void RU::calc_p()
 
     switch (this->type)
     {
-    case macro:
+    case RUType::macro:
         // Using macro values:
         // Calculate current p as P_sleep + delta_p dependent on bandwidth + P_max * current load
         this->p = this->antennae * 324000 + this->bandwidth * 0.00042 + ((float)this->alloc_PRB / (float)this->num_PRB) * 40000;
         break;
     
     // For some reason, case micro: is ambiguous
-    default:
+    case RUType::micro:
         // Using pessimistic micro (parameterized picocell) values:
 
         // if no users, set to sleep mode level of power consumption
@@ -69,6 +69,24 @@ const float *RU::get_coords()
 const RUType RU::get_type()
 {
     return this->type;
+}
+
+/// @brief c++ is way too basic for my taste
+/// @return a string representation of the RU's type ("macro" or "micro")
+const std::string RU::get_type_string()
+{
+    switch (this->type)
+    {
+        case RUType::macro:
+            return "macro";
+        break;
+
+        case  RUType::micro:
+            return "micro";
+        break;
+    }
+
+    return ""; // should be unreachable
 }
 
 const int RU::get_num_PRB()

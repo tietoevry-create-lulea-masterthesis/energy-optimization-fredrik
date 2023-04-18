@@ -24,6 +24,9 @@ bool handover(std::string ue_uid, int from_RU, int to_RU);
 /// @param ru_index the ru that the UE is currently connected to
 void remove_ue(UE *ue, int ru_index);
 
+void get_ue_mutex();
+void release_ue_mutex();
+
 float calc_sig_str(RU ru, UE ue);
 
 /// @brief Calculates the number of PRBs allocated to UEs for a given RU
@@ -36,12 +39,12 @@ int calc_alloc_PRB(int ru_index);
 /// @return Returns the closest RU, since that is probably the most interesting one
 std::string find_closest_rus(UE *ue);
 
-string stringify_connected_ues(int ru_index);
+std::string stringify_connected_ues(int ru_index);
 
 /// @brief Stringifies signal strength array in order to update database
 /// @param ue The UE to stringify the array of
 /// @param dist If false, returns a string containing the UID's of each of the closest RUs. If true, returns the signal strengths to each of the closest RUs
 /// @return A string dependent on the value of the dist bool.
-string stringify_sig_str_arr(UE *ue, bool dist = false);
+std::string stringify_sig_str_arr(UE *ue, bool dist = false);
 
 void *sim_loop(void *arg);

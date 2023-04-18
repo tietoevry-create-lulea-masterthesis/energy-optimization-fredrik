@@ -72,25 +72,43 @@ extern int main(int argc, char **argv)
     pthread_t sim_thread; // create the threrhede at some point ig
     pthread_create(&sim_thread, NULL, &sim_loop, NULL);
 
+    auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
+
     // For as long as simulation is running, keep instancing new, seeded UEs
     while (true) 
     {
-        sleep(rand() % 5 + 5); // sleep for 5-10 seconds
-        UE *spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)});
+        sleep(rand() % 4 + 1); // sleep for 1-5 seconds
+        UE spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)});
 
         sim_UEs.push_back(spawn_ue);
         find_closest_rus(&spawn_ue);
+        const RU_entry *sig_arr = spawn_ue.get_sig_arr();
 
         bool insuff_capacity = true;
         for (size_t i = 0; i < UE_CLOSEST_RUS; i++)
         {
             // If the current RU has enough free PRBs to handle the spawned UE's demand, connect to it and break loop
-            if (spawn_ue->get_sig_arr()[i].ru->get_alloc_PRB() + spawn_ue->get_demand() < spawn_ue->get_sig_arr()[i].ru->get_num_PRB())
+            if (sig_arr[i].ru->get_alloc_PRB() + spawn_ue.get_demand() < sig_arr[i].ru->get_num_PRB())
             {
-                RU_conn[stoi(spawn_ue->get_sig_arr()[i].ru->get_UID().substr(3))].push_back(spawn_ue);
+                int ru_index = stoi(sig_arr[i].ru->get_UID().substr(3));
+                RU_conn[ru_index].push_back(spawn_ue);
+                sim_RUs[ru_index].set_alloc_PRB(calc_alloc_PRB(ru_index));
+                insuff_capacity = false;
+                cout << spawn_ue.get_UID() + " connected to " + sig_arr[i].ru->get_UID() << endl;
+                break;
             }
         }
+
+        if (insuff_capacity) cout << "Warning! " << spawn_ue.get_UID() << " was unable to connect due to insufficient capacity" << endl;
+
         i_ue++;
+
+        // Also write UE info to database
+        influxdb->write(influxdb::Point{"sim_UEs"}
+                            .addField("demand", spawn_ue.get_demand())
+                            .addField("near_RU", stringify_sig_str_arr(&spawn_ue))
+                            .addField("near_RU_sig", stringify_sig_str_arr(&spawn_ue, true))
+                            .addTag("uid", spawn_ue.get_UID()));
     }
     
     return 0;
