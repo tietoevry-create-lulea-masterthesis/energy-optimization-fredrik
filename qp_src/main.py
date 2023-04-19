@@ -72,12 +72,16 @@ def handover_predict_handler(self, summary, sbuf):
     self.predict_requests += 1
     # we don't use rts here; free this
     self.rmr_free(sbuf)
-    success = self.rmr_send(pred_msg.encode(), 30037)
-    logger.debug("Sending message to EE-xApp : {}".format(pred_msg))  # For debug purpose
-    if success:
-        logger.debug("predict handler: sent message successfully")
+
+    if (pred_msg == "{}"):
+        print("Empty handover prediction, potential database misread?")
     else:
-        logger.warning("predict handler: failed to send message")
+        success = self.rmr_send(pred_msg.encode(), 30037)
+        logger.debug("Sending message to EE-xApp : {}".format(pred_msg))  # For debug purpose
+        if success:
+            logger.debug("predict handler: sent message successfully")
+        else:
+            logger.warning("predict handler: failed to send message")
 
 def qp_predict_handler(self, summary, sbuf):
     """
@@ -140,7 +144,7 @@ def predict_handovers(payload):
                     latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
                     
                     # see if RU_52 is in the array of nearby RUs, and is not already the closest
-                    if (latest_ue_entry["near_RU"].find("RU_52") > 0):
+                    if (latest_ue_entry["near_RU"][0].find("RU_52") > 0):
                         # ok but finding signal strength is a little tougher, since u need index which depends on number of commas.
                         # print("Found RU_52, signal strength: " + str(latest_ue_entry[][0]))
                         

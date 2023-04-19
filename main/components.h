@@ -15,7 +15,7 @@ private:
     std::string uid;
     float coords[2];         // x, y coords
     RUType type = RUType::micro;     // default: micro-RU
-    int antennae = 4;        // default: 4T4R
+    int antennae = 2;        // default: 2T2R
     int bandwidth = 4000000; // default: 4 MHz
     int num_PRB;             // number of physical resource blocks, depends on the bandwidth
     int alloc_PRB;           // number of physical resource blocks that have been allocated to UE
@@ -78,7 +78,7 @@ private:
     float coords[2]; // x, y coords
 
     int prb_demand = 2;                                                                    // amount of physical resource blocks that the traffic of this UE demands
-    float timer = 600;                                                                      // time until UE expires, defaults to 60 seconds
+    float timer = 60;                                                                      // time until UE expires, defaults to 60 seconds
     RU_entry sig_arr[UE_CLOSEST_RUS];                                                      // array of n closest RUs
     std::chrono::_V2::system_clock::time_point last_meas_t; // time since last timer decrement
 

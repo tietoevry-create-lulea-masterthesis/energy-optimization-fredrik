@@ -44,7 +44,7 @@ extern int main(int argc, char **argv)
     }
 
     // Spawn UEs
-    for (size_t i = 0; i < 100; i++)
+    for (size_t i = 0; i < 200; i++)
     {
         sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}));
         i_ue++;

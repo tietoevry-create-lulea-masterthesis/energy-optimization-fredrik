@@ -57,12 +57,6 @@ void remove_ue(UE *ue, int ru_index)
 {
     cout << "removing " + ue->get_UID() + " from simulation" << endl;
 
-    for (auto &&ue : RU_conn[ru_index])
-    {
-        cout << ue.get_UID() << endl;
-    }
-    
-
     sim_UEs.remove(*ue);
     RU_conn[ru_index].remove(*ue);
     sim_RUs[ru_index].set_alloc_PRB(calc_alloc_PRB(ru_index));
@@ -286,11 +280,14 @@ void *sim_loop(void *arg)
             for (auto &&ue : RU_conn[i]) if (ue.decrement_timer()) expired_ues.push_back(&ue); // first check if any connected UEs have expired
             for (auto &&ue : expired_ues) remove_ue(ue, i); // if any expired UEs, remove them from simulation
             
+            float current_load = (float)sim_RUs[i].get_alloc_PRB() / (float)sim_RUs[i].get_num_PRB();
+        
+            influxdb::Point{"sim_RUs"}.floatsPrecision = influxdb::defaultFloatsPrecision; // reset float precision
             influxdb->write(influxdb::Point{"sim_RUs"}
                                 .addTag("uid", sim_RUs[i].get_UID())
                                 .addTag("RU_type", sim_RUs[i].get_type_string())
                                 .addField("free_PRB", sim_RUs[i].get_num_PRB() - sim_RUs[i].get_alloc_PRB())
-                                .addField("current_load", (float)sim_RUs[i].get_alloc_PRB() / (float)sim_RUs[i].get_num_PRB())
+                                .addField("current_load", current_load)
                                 .addField("p", sim_RUs[i].get_p())
                                 .addField("p_tot", sim_RUs[i].get_p_tot())
                                 .addField("connections", stringify_connected_ues(i)));
