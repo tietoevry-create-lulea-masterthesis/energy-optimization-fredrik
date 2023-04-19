@@ -121,10 +121,45 @@ def predict_handovers(payload):
     payload = json.loads(payload)
     ru_list = payload['RUPredictionSet']
 
-    # stupid test: for each RU, see if connected UEs are close to RU_52, if so, handover them to RU_52
+    sleep_targets = []      # init collection of RUs that should be offloaded/slept
+    ru_close_counter = {}   # dict containing number of UEs that know each RU, "famous" RUs should be prioritized and kept awake
+    
     db.read_ru_data() # gather all RU data
     ru_data = db.data # store RU data
 
+    for ru_uid in ru_list:
+        # gather last data point for current RU
+        latest_ru_entry = ru_data.loc[ru_data['uid'] == ru_uid].tail(1)
+
+        # check if RU's latest entry has any connected UEs
+        if (len(latest_ru_entry["connections"]) > 0):
+            conn_list = latest_ru_entry["connections"][0] # gather string containing all connected UEs
+
+            if (conn_list is not None):
+                # If RU has connected UEs, split into array, removing last entry since it will be an empty string
+                # conn_list will look like "UE_1,UE_2,UE_3,"
+                conn_list = conn_list.split(",")[:-1]
+
+                # loop through and gather data on each UE to find closest RUs
+                for ue in conn_list:
+                    db.read_ue_data(ue)
+                    latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
+
+                    # latest_ue_entry["near_RU"][0] will look like "RU_52,RU_51,RU_62,RU_42,RU_53,RU_61,RU_41,RU_63,RU_43,RU_50,"
+                    # take string defining all known RUs and split it into list, excluding last element (blank string)
+                    known_ru_list = latest_ue_entry["near_RU"][0].split(",")[:-1]
+
+                    for ru in known_ru_list:
+                        if ru in list(ru_close_counter.keys()):
+                            # if RU has been encountered before, increase counter by one
+                            ru_close_counter[ru] += 1
+                        else:
+                            # else, initialize RU encounter counter to 0
+                            ru_close_counter[ru] = 0
+
+
+    """
+    # stupid test: for each RU, see if connected UEs are close to RU_52, if so, handover them to RU_52
     for ru_uid in ru_list:
         # gather last data point for current RU
         latest_ru_entry = ru_data.loc[ru_data['uid'] == ru_uid].tail(1)
@@ -150,7 +185,8 @@ def predict_handovers(payload):
                         
                         # construct handover prediction
                         # will look like "UE_1": "RU_61,RU_52"
-                        output[ue] = ru_uid + ",RU_52" 
+                        output[ue] = ru_uid + ",RU_52"
+    """
 
     # return all handovers
     return json.dumps(output)
