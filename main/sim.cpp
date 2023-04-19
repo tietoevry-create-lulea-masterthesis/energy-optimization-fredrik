@@ -136,8 +136,9 @@ int offload_ru(int ru_index)
     else
     {
         handover(last_ue.get_UID(), ru_index, stoi(ue_sig_arr[0].ru->get_UID().substr(3)));
-        return last_ue.get_demand();
     }
+
+    return last_ue.get_demand();
 }
 
 string find_closest_rus(UE *ue)
@@ -249,7 +250,7 @@ struct HandoverPoint
             // components.at(1) holds the from_RU uid
             // components.at(2) holds the to_RU uid
 
-            cout << "executing handover: " << d << endl;
+            //cout << "executing handover: " << d << endl;
 
             string delimiter = ",";
             vector<string> components;
