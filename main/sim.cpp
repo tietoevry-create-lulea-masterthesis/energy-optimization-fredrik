@@ -44,10 +44,6 @@ bool handover(string ue_uid, int from_RU, int to_RU)
     RU_conn[from_RU].remove(*ue_ptr);
     RU_conn[to_RU].push_back(*ue_ptr);
 
-    // Calc new load for each RU
-    sim_RUs[from_RU].set_alloc_PRB(calc_alloc_PRB(from_RU));
-    sim_RUs[to_RU].set_alloc_PRB(calc_alloc_PRB(to_RU));
-
     cout << "Moved " + ue_ptr->get_UID() + " from RU_" << from_RU << " to RU_" << to_RU << endl;
 
     return true;
@@ -59,7 +55,6 @@ void remove_ue(UE *ue, int ru_index)
 
     sim_UEs.remove(*ue);
     RU_conn[ru_index].remove(*ue);
-    sim_RUs[ru_index].set_alloc_PRB(calc_alloc_PRB(ru_index));
 }
 
 float calc_sig_str(RU ru, UE ue)
@@ -104,15 +99,45 @@ int calc_alloc_PRB(int ru_index)
         alloc_PRB += ue.get_demand();
     }
 
-    // Sanity check
+    // Sanity check, remove overbearing UEs
     if (alloc_PRB > sim_RUs[ru_index].get_num_PRB())
     {
-        cout << "!!! ERROR: More PRBs allocated for " + sim_RUs[ru_index].get_UID() + " than available !!!\n";
-        cout << "Allocated: " << alloc_PRB << ", Available: " << sim_RUs[ru_index].get_num_PRB() << "\n";
+        cout << "Alert: More PRBs allocated for " + sim_RUs[ru_index].get_UID() + " than available, moving UEs to nearby RU" << endl;
+        while (alloc_PRB > sim_RUs[ru_index].get_num_PRB())
+        {
+            alloc_PRB -= offload_ru(ru_index);
+        }
     }
 
-    if (alloc_PRB == 2) alloc_PRB = 0; // if number of PRBs are still 2, no UEs connected, set alloc_PRB to 0, which should sleep the RU
+    if (alloc_PRB == 2)
+        alloc_PRB = 0; // if number of PRBs are still 2, no UEs connected, set alloc_PRB to 0, which should sleep the RU
     return alloc_PRB;
+}
+
+int offload_ru(int ru_index)
+{
+    UE last_ue = RU_conn[ru_index].back();
+    auto ue_sig_arr = last_ue.get_sig_arr();
+
+    // If the RU being offloaded is the RU with the best signal, handover to the next best RU that has capacity
+    if (ue_sig_arr[0].ru->get_UID().compare(sim_RUs[ru_index].get_UID()) == 0)
+    {
+        for (size_t i = 1; i < UE_CLOSEST_RUS; i++)
+        {
+            if (ue_sig_arr[i].ru->get_num_PRB() - ue_sig_arr[i].ru->get_alloc_PRB() >= last_ue.get_demand())
+            {
+                handover(last_ue.get_UID(), ru_index, stoi(ue_sig_arr[i].ru->get_UID().substr(3)));
+                return last_ue.get_demand();
+            }
+        }
+    }
+
+    // Else, handover to RU with best signal
+    else
+    {
+        handover(last_ue.get_UID(), ru_index, stoi(ue_sig_arr[0].ru->get_UID().substr(3)));
+        return last_ue.get_demand();
+    }
 }
 
 string find_closest_rus(UE *ue)
@@ -132,7 +157,7 @@ string find_closest_rus(UE *ue)
     }
 
     ue->set_sig_arr(candidates);
-    
+
     return candidates[0].ru->get_UID();
 }
 
@@ -156,7 +181,7 @@ string stringify_sig_str_arr(UE *ue, bool dist)
     {
         for (size_t i = 0; i < UE_CLOSEST_RUS; i++)
         {
-            arr_str+= to_string(ue->get_sig_arr()[i].sig_str) + ",";
+            arr_str += to_string(ue->get_sig_arr()[i].sig_str) + ",";
         }
     }
 
@@ -164,7 +189,7 @@ string stringify_sig_str_arr(UE *ue, bool dist)
     {
         for (size_t i = 0; i < UE_CLOSEST_RUS; i++)
         {
-            arr_str+= ue->get_sig_arr()[i].ru->get_UID() + ",";
+            arr_str += ue->get_sig_arr()[i].ru->get_UID() + ",";
         }
     }
 
@@ -273,15 +298,21 @@ void *sim_loop(void *arg)
         // Loop through each RU and simulate power consumption + connections
         for (size_t i = 0; i < RU_NUM; i++)
         {
-            vector<UE*> expired_ues;
+            vector<UE *> expired_ues;
 
             // calculate delta P and handle connected UEs
             sim_RUs[i].calc_delta_p();
-            for (auto &&ue : RU_conn[i]) if (ue.decrement_timer()) expired_ues.push_back(&ue); // first check if any connected UEs have expired
-            for (auto &&ue : expired_ues) remove_ue(ue, i); // if any expired UEs, remove them from simulation
             
+            for (auto &&ue : RU_conn[i])
+                if (ue.decrement_timer())
+                    expired_ues.push_back(&ue); // first check if any connected UEs have expired
+            for (auto &&ue : expired_ues)
+                remove_ue(ue, i); // if any expired UEs, remove them from simulation
+
+            // Calc new load for each RU
+            sim_RUs[i].set_alloc_PRB(calc_alloc_PRB(i));
             float current_load = (float)sim_RUs[i].get_alloc_PRB() / (float)sim_RUs[i].get_num_PRB();
-        
+
             influxdb::Point{"sim_RUs"}.floatsPrecision = influxdb::defaultFloatsPrecision; // reset float precision
             influxdb->write(influxdb::Point{"sim_RUs"}
                                 .addTag("uid", sim_RUs[i].get_UID())
@@ -294,7 +325,8 @@ void *sim_loop(void *arg)
         }
 
         write_no++;
-        if (write_no % 100 == 0) cout << "written all RU points 100 times, total: " << write_no << endl;
+        if (write_no % 100 == 0)
+            cout << "written all RU points 100 times, total: " << write_no << endl;
 
         vector<influxdb::Point> handovers = influxdb->query("select * from handovers where time > now() - 10s");
 

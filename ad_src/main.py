@@ -131,7 +131,7 @@ def detect_RU_sit(self, df):
     val: situation info(RUID, TimeStamp, SituationType)
     """
 
-    low_ru = df.loc[df['current_load'] < 0.1]
+    low_ru = df.loc[df['current_load'] < 0.8]
     if (len(low_ru) > 0):
         low_ru = df['uid'].drop_duplicates() # array containing each relevant RU
         sit_df = pd.DataFrame(low_ru)

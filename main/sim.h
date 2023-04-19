@@ -34,6 +34,11 @@ float calc_sig_str(RU ru, UE ue);
 /// @return the number of allocated PRBs, will return 0 if no UEs are connected
 int calc_alloc_PRB(int ru_index);
 
+/// @brief Offloads an RU of the last connected UE to its nearest or otherwise second nearest RU
+/// @param ru_index the RU to offload
+/// @return the number of PRBs freed
+int offload_ru(int ru_index);
+
 /// @brief Finds the n closest RUs to a given UE, and inserts these into the UE's sig_arr
 /// @param ue the ue to find RUs and replace sig_arr of
 /// @return Returns the closest RU, since that is probably the most interesting one
