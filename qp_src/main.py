@@ -122,11 +122,13 @@ def predict_handovers(payload):
     ru_list = payload['RUPredictionSet']
 
     sleep_targets = []      # init collection of RUs that should be offloaded/slept
-    ru_close_counter = {}   # dict containing number of UEs that know each RU, "famous" RUs should be prioritized and kept awake
+    ru_fame_dict = {}       # dict containing number of UEs that know each RU, "famous" RUs should be prioritized and kept awake
+    ru_PRB_dict = {}        # dict containing number of free PRBs for each known RU
     
     db.read_ru_data() # gather all RU data
     ru_data = db.data # store RU data
 
+    # first, find famous RUs
     for ru_uid in ru_list:
         # gather last data point for current RU
         latest_ru_entry = ru_data.loc[ru_data['uid'] == ru_uid].tail(1)
@@ -149,14 +151,64 @@ def predict_handovers(payload):
                     # take string defining all known RUs and split it into list, excluding last element (blank string)
                     known_ru_list = latest_ue_entry["near_RU"][0].split(",")[:-1]
 
-                    for ru in known_ru_list:
-                        if ru in list(ru_close_counter.keys()):
+                    for known_ru in known_ru_list:
+                        if known_ru in list(ru_fame_dict.keys()):
                             # if RU has been encountered before, increase counter by one
-                            ru_close_counter[ru] += 1
+                            ru_fame_dict[known_ru] += 1
                         else:
-                            # else, initialize RU encounter counter to 0
-                            ru_close_counter[ru] = 0
+                            # else, initialize RU encounter counter to 1 while also entering the RU's free PRBs
+                            ru_fame_dict[known_ru] = 0
+                            ru_info = ru_data.loc[ru_data['uid'] == known_ru].tail(1) # get last data point for RU
+                            ru_PRB_dict[known_ru] = ru_info['free_PRB'][0]
 
+    # second, sort dictionary tuples by famousness, from least to most famous
+    sorted_known_ru_list = {key: val for key, val in sorted(known_ru_list.items(), key = lambda ele: ele[1])}
+    
+    # for each non-famous RU, iterate through all connected UEs
+    for ru_uid in list(sorted_known_ru_list.keys()):
+        print("investigating ", ru_uid)
+        latest_ru_entry = ru_data.loc[ru_data['uid'] == ru_uid].tail(1)
+
+        # check if RU's latest entry has any connected UEs
+        if (len(latest_ru_entry["connections"]) > 0):
+            conn_list = latest_ru_entry["connections"][0] # gather string containing all connected UEs
+
+            if (conn_list is not None):
+                # If RU has connected UEs, split into array, removing last entry since it will be an empty string
+                # conn_list will look like "UE_1,UE_2,UE_3,"
+                conn_list = conn_list.split(",")[:-1]
+
+                sleep_possible = True
+                potential_handovers = {}
+                for ue in conn_list:
+                    print("\tinvestigating ", ue, " connected to ", ru_uid)
+                    db.read_ue_data(ue)
+                    latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
+
+                    known_ru_list = latest_ue_entry["near_RU"][0].split(",")[:-1]
+
+                    # for each connected UE, iterate through all known RUs that are not the current RU and are not in sleep_targets
+                    for known_ru in known_ru_list:
+                        if known_ru == ru_uid or known_ru in list(sleep_targets):
+                            continue
+                        else:
+                            # if the known RU has enough PRBs for the UE, deduct the PRB number by the UE's demand and create a temporary handover request
+                            if ru_PRB_dict[known_ru] >= latest_ue_entry["demand"][0]:
+                                ru_PRB_dict[known_ru] -= latest_ue_entry["demand"][0]
+                                potential_handovers[ue] = ru_uid + "," + known_ru
+                                print("\t\t ", ue, " can be handed to ", known_ru)
+                                break
+                            
+                            # else if UE has reached end of list of known RUs without being able to connect to any of them, sleep is impossible
+                            elif known_ru == known_ru_list[len(known_ru_list) - 1]:
+                                print("\t\t ", ue, " can NOT be handed anywhere, ", ru_uid, " will not be slept")
+                                sleep_possible = False
+
+                # if all UEs can be handed over to some other RUs, add current RU to sleep_targets and add temporary handover requests to final handover request list
+                if sleep_possible:
+                    sleep_targets.append(ru_uid)
+                    for key in list(potential_handovers.keys()):
+                        output[key] = potential_handovers[key]
 
     """
     # stupid test: for each RU, see if connected UEs are close to RU_52, if so, handover them to RU_52
