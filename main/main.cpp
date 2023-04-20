@@ -44,9 +44,10 @@ extern int main(int argc, char **argv)
     }
 
     // Spawn UEs
-    for (size_t i = 0; i < 200; i++)
+    for (size_t i = 0; i < 150; i++)
     {
-        sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}));
+        // initialize a bunch of UEs with timers ranging from 60-120
+        sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}, fmodf(rand(), 6000) / 100 + 60));
         i_ue++;
     }
 
@@ -69,16 +70,19 @@ extern int main(int argc, char **argv)
         sim_RUs[i].set_alloc_PRB(calc_alloc_PRB(i));
     }
 
-    pthread_t sim_thread; // create the threrhede at some point ig
-    pthread_create(&sim_thread, NULL, &sim_loop, NULL);
+    long simulation_duration = 60; // Determines how long the simulation should last (in seconds)
+    auto stop_time = chrono::high_resolution_clock::now() + chrono::seconds(simulation_duration);
+
+    pthread_t sim_thread; // create thread for simulation + handover handle loop
+    pthread_create(&sim_thread, NULL, &sim_loop, (void *)simulation_duration);
 
     auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
 
     // For as long as simulation is running, keep instancing new, seeded UEs
-    while (true) 
+    while (chrono::high_resolution_clock::now() < stop_time)
     {
-        sleep(rand() % 4 + 1); // sleep for 1-5 seconds
-        UE spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)});
+        sleep(rand() % 1 + 1); // sleep for 1-3 seconds
+        UE spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}, fmodf(rand(), 6000) / 100 + 60);
 
         sim_UEs.push_back(spawn_ue);
         find_closest_rus(&spawn_ue);
@@ -111,5 +115,6 @@ extern int main(int argc, char **argv)
                             .addTag("uid", spawn_ue.get_UID()));
     }
     
+    pthread_exit(NULL);
     return 0;
 }

@@ -52,4 +52,4 @@ std::string stringify_connected_ues(int ru_index);
 /// @return A string dependent on the value of the dist bool.
 std::string stringify_sig_str_arr(UE *ue, bool dist = false);
 
-void *sim_loop(void *arg);
+void *sim_loop(void *sim_dur);

@@ -130,11 +130,12 @@ void RU::set_alloc_PRB(int a_PRB)
 // UE Functions
 // ============
 
-UE::UE(string uid, float coords[2])
+UE::UE(string uid, float coords[2], float timer)
 {
     this->uid = uid;
     this->coords[0] = coords[0];
     this->coords[1] = coords[1];
+    this->timer = timer;
     this->last_meas_t = high_resolution_clock::now(); // initialize last measure time to init time
 }
 

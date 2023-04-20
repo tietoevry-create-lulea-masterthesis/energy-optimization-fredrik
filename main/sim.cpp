@@ -8,6 +8,8 @@
 #include "sim.h"
 #include <InfluxDBFactory.h>
 
+#define EE_MODE_ON false // decides whether handovers by EE-xApp should be executed (if set to true) or ignored (if set to false)
+
 using namespace std;
 
 void print_ue_conn(int ru_index)
@@ -36,7 +38,7 @@ bool handover(string ue_uid, int from_RU, int to_RU)
     // If UE was not found, return false
     if (!ue_ptr)
     {
-        cout << "!!! ERROR: Couldn't find UE to hand over !!!\n";
+        cout << "!!! ERROR: Couldn't find UE at RU_" + to_string(from_RU) + " !!!\n";
         return false;
     }
 
@@ -250,7 +252,7 @@ struct HandoverPoint
             // components.at(1) holds the from_RU uid
             // components.at(2) holds the to_RU uid
 
-            //cout << "executing handover: " << d << endl;
+            // cout << "executing handover: " << d << endl;
 
             string delimiter = ",";
             vector<string> components;
@@ -275,8 +277,10 @@ struct HandoverPoint
     }
 };
 
-void *sim_loop(void *arg)
+void *sim_loop(void *sim_dur)
 {
+    auto stop_time = chrono::high_resolution_clock::now() + chrono::seconds((long) sim_dur);
+
     auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
     influxdb->batchOf(100); // creates buffer for writes, only writes to database once 100 points of data have accumulated
 
@@ -293,9 +297,12 @@ void *sim_loop(void *arg)
     int latest_decision_no = 0; // keeps track of ID of latest handover decision that was treated, should probably only increase in value
     int write_no = 0;
 
-    while (true)
+    while (chrono::high_resolution_clock::now() < stop_time)
     {
         sleep(0.1);
+
+        float sim_tot_P = 0;
+        float sim_tot_E = 0;
         // Loop through each RU and simulate power consumption + connections
         for (size_t i = 0; i < RU_NUM; i++)
         {
@@ -303,7 +310,7 @@ void *sim_loop(void *arg)
 
             // calculate delta P and handle connected UEs
             sim_RUs[i].calc_delta_p();
-            
+
             for (auto &&ue : RU_conn[i])
                 if (ue.decrement_timer())
                     expired_ues.push_back(&ue); // first check if any connected UEs have expired
@@ -323,7 +330,15 @@ void *sim_loop(void *arg)
                                 .addField("p", sim_RUs[i].get_p())
                                 .addField("p_tot", sim_RUs[i].get_p_tot())
                                 .addField("connections", stringify_connected_ues(i)));
+
+            sim_tot_P += sim_RUs[i].get_p();     // also add RU total power consumption to simulation total
+            sim_tot_E += sim_RUs[i].get_p_tot(); // ----------------- energy consumed to simulation total
         }
+
+        // Write network's total power consumption and energy consumed
+        influxdb->write(influxdb::Point{"sim_total"}
+        .addField("total_P", sim_tot_P)
+        .addField("total_E", sim_tot_E));
 
         write_no++;
         if (write_no % 100 == 0)
@@ -331,15 +346,20 @@ void *sim_loop(void *arg)
 
         vector<influxdb::Point> handovers = influxdb->query("select * from handovers where time > now() - 10s");
 
-        for (auto &&h : handovers)
+        if (EE_MODE_ON)
         {
-            h.floatsPrecision = 0;                                                     // makes parsing decision_no simpler, as it is an integer and would otherwise show up as 1.00000000
-            HandoverPoint handover_point = HandoverPoint(h.getTags() + h.getFields()); // for some reason influxDB thinks all fields with string values are tags
-            if (handover_point.decision_no > latest_decision_no)
+            for (auto &&h : handovers)
             {
-                latest_decision_no = handover_point.decision_no;
-                handover_point.execute_handovers();
+                h.floatsPrecision = 0;                                                     // makes parsing decision_no simpler, as it is an integer and would otherwise show up as 1.00000000
+                HandoverPoint handover_point = HandoverPoint(h.getTags() + h.getFields()); // for some reason influxDB thinks all fields with string values are tags
+                if (handover_point.decision_no > latest_decision_no)
+                {
+                    latest_decision_no = handover_point.decision_no;
+                    handover_point.execute_handovers();
+                }
             }
         }
     }
+
+    pthread_exit(NULL);
 }

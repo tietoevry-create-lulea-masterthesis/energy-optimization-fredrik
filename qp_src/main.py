@@ -128,6 +128,9 @@ def predict_handovers(payload):
     db.read_ru_data() # gather all RU data
     ru_data = db.data # store RU data
 
+    if ru_data is None:
+        return output # return empty dict, makes sure no message is sent
+
     # first, find famous RUs
     for ru_uid in ru_list:
         # gather last data point for current RU
@@ -162,10 +165,10 @@ def predict_handovers(payload):
                             ru_PRB_dict[known_ru] = ru_info['free_PRB'][0]
 
     # second, sort dictionary tuples by famousness, from least to most famous
-    sorted_known_ru_list = {key: val for key, val in sorted(known_ru_list.items(), key = lambda ele: ele[1])}
+    famous_ru_list = {key: val for key, val in sorted(ru_fame_dict.items(), key = lambda ele: ele[1])}
     
     # for each non-famous RU, iterate through all connected UEs
-    for ru_uid in list(sorted_known_ru_list.keys()):
+    for ru_uid in list(famous_ru_list.keys()):
         print("investigating ", ru_uid)
         latest_ru_entry = ru_data.loc[ru_data['uid'] == ru_uid].tail(1)
 
@@ -181,7 +184,6 @@ def predict_handovers(payload):
                 sleep_possible = True
                 potential_handovers = {}
                 for ue in conn_list:
-                    print("\tinvestigating ", ue, " connected to ", ru_uid)
                     db.read_ue_data(ue)
                     latest_ue_entry = db.data.tail(1) # only interested in last entry (most recent UE status report)
 
@@ -209,6 +211,8 @@ def predict_handovers(payload):
                     sleep_targets.append(ru_uid)
                     for key in list(potential_handovers.keys()):
                         output[key] = potential_handovers[key]
+                else:
+                    print(ru_uid, " will not be slept")
 
     """
     # stupid test: for each RU, see if connected UEs are close to RU_52, if so, handover them to RU_52

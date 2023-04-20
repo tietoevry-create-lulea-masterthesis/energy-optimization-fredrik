@@ -13,17 +13,17 @@ class RU
 {
 private:
     std::string uid;
-    float coords[2];         // x, y coords
-    RUType type = RUType::micro;     // default: micro-RU
-    int antennae = 2;        // default: 2T2R
-    int bandwidth = 4000000; // default: 4 MHz
-    int num_PRB;             // number of physical resource blocks, depends on the bandwidth
-    int alloc_PRB;           // number of physical resource blocks that have been allocated to UE
+    float coords[2];             // x, y coords
+    RUType type = RUType::micro; // default: micro-RU
+    int antennae = 2;            // default: 2T2R
+    int bandwidth = 4000000;     // default: 4 MHz
+    int num_PRB;                 // number of physical resource blocks, depends on the bandwidth
+    int alloc_PRB;               // number of physical resource blocks that have been allocated to UE
 
-    float p;                                                                               // power consumption, dependent on current traffic load, measured in mW
-    float p_tot = 0;                                                                       // total power consumption since t = 0, measured in mWs (milliwattsecond which is 0,001 J)
+    float p;                                                // power consumption, dependent on current traffic load, measured in mW
+    float p_tot = 0;                                        // total power consumption since t = 0, measured in mWs (milliwattsecond which is 0,001 J)
     std::chrono::_V2::system_clock::time_point last_meas_t; // time since last delta measurement of power consumption
-    
+
     void calc_p();
 
 public:
@@ -54,7 +54,7 @@ struct RU_entry
         sig_str = -1;
     }
 
-    RU_entry(RU* ru, float sig_str)
+    RU_entry(RU *ru, float sig_str)
     {
         this->ru = ru;
         this->sig_str = sig_str;
@@ -77,13 +77,13 @@ private:
     std::string uid;
     float coords[2]; // x, y coords
 
-    int prb_demand = 2;                                                                    // amount of physical resource blocks that the traffic of this UE demands
-    float timer = 60;                                                                      // time until UE expires, defaults to 60 seconds
-    RU_entry sig_arr[UE_CLOSEST_RUS];                                                      // array of n closest RUs
+    int prb_demand = 2;                                     // amount of physical resource blocks that the traffic of this UE demands
+    float timer;                                            // time until UE expires
+    RU_entry sig_arr[UE_CLOSEST_RUS];                       // array of n closest RUs
     std::chrono::_V2::system_clock::time_point last_meas_t; // time since last timer decrement
 
 public:
-    UE(std::string uid, float coords[2]);
+    UE(std::string uid, float coords[2], float timer);
 
     const std::string get_UID();
     const float *get_coords();

@@ -809,10 +809,10 @@ void send_handover_decisions( vector<HandoverStruct> handover_decisions ) {
   size_t plen;
   Msg_component send_payload;
 
-  msg = xfw->Alloc_msg( 2048 );
+  msg = xfw->Alloc_msg( 8192 );
 
   sz = msg->Get_available_size();  // we'll reuse a message if we received one back; ensure it's big enough
-  if( sz < 2048 ) {
+  if( sz < 8192 ) {
     fprintf( stderr, "[ERROR] message returned did not have enough size: %d [%d]\n", sz, i );
     exit( 1 );
   }
@@ -832,7 +832,7 @@ void send_handover_decisions( vector<HandoverStruct> handover_decisions ) {
   string message_body = "{\"handovers\": " + handover_list + "}";
 
   send_payload = msg->Get_payload(); // direct access to payload
-  snprintf( (char *) send_payload.get(), 2048, "%s", message_body.c_str() );
+  snprintf( (char *) send_payload.get(), 8192, "%s", message_body.c_str() );
 
   plen = strlen( (char *)send_payload.get() );
 
@@ -859,7 +859,6 @@ void handover_prediction_callback( Message& mbuf, int mtype, int subid, int len,
     cout << "[ERROR] Got an exception on stringstream read parse\n";
   }
 
-  // do logic on handler.handovers to find optimal handover subset
   send_handover_decisions(handler.handovers);
 }
 
