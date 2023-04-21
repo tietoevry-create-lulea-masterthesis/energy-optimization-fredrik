@@ -13,18 +13,22 @@ list<UE> sim_UEs;
 list<UE> RU_conn[RU_NUM]; // Array of lists, one list for each RU that keeps track of all UEs connected to it
 
 const float max_coord = 5000; // Determines the maximum x and y coordinate of the simulation map
+const float margin = 0.2;     // Determines how far from the edges micro-RU grid should be (0.2 margin on 5000 max_coord means grid will stretch from 1000-4000)
 
 unsigned int seed = 42;
+default_random_engine rng;
+normal_distribution<float> coord_distribution(max_coord / 2, max_coord / 2 / 5);
 
 int i_ue = 0; // iterator for UE uid's
 
 extern int main(int argc, char **argv)
 {
     srand(seed);
+    rng = default_random_engine(seed);
 
     int ru_i = 0;
 
-    // Place RUs
+    // Place Micro-RUs
     for (size_t y = 0; y < sqrt(RU_NUM); y++)
     {
         for (size_t x = 0; x < sqrt(RU_NUM); x++)
@@ -32,22 +36,25 @@ extern int main(int argc, char **argv)
             // Forms an even grid of RUs in coordinate space
             sim_RUs[ru_i] = *new RU("RU_" + to_string(ru_i), new float[2]
             {
-                // if coord space = 0-100 and RU_NUM = 100,
-                // coords go from 5, 10, 15 ... 95, i.e. equal margins on all sides
-                x * max_coord / sqrtf(RU_NUM) + max_coord / sqrtf(RU_NUM) / 2,
-                y * max_coord / sqrtf(RU_NUM) + max_coord / sqrtf(RU_NUM) / 2
+                x / (sqrtf(RU_NUM) - 1) * max_coord * (1 - margin * 2) + max_coord * margin,
+                y / (sqrtf(RU_NUM) - 1) * max_coord * (1 - margin * 2) + max_coord * margin
             },
-            4, 4000000);
+            2, (rand() % 1 + 1) * 2000000); // 2T2R with either 2 MHz or 4MHz bandwidth
 
             ru_i++; // iterate ru_i for each RU created
         }
     }
 
+    // Exchange 3 Micro-RUs with Macro-RUs where each one has 20 MHz bandwidth (100 PRBs)
+    sim_RUs[25] = *new RU("RU_25", new float[2]{2500, 1000}, 4, 20000000, true);
+    sim_RUs[50] = *new RU("RU_50", new float[2]{1000, 3500}, 4, 20000000, true);
+    sim_RUs[75] = *new RU("RU_75", new float[2]{4000, 3500}, 4, 20000000, true);
+
     // Spawn UEs
     for (size_t i = 0; i < 150; i++)
     {
         // initialize a bunch of UEs with timers ranging from 60-120
-        sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}, fmodf(rand(), 6000) / 100 + 60));
+        sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(coord_distribution(rng), max_coord), fmodf(coord_distribution(rng), max_coord)}, fmodf(rand(), 6000) / 100 + 60));
         i_ue++;
     }
 
@@ -81,7 +88,7 @@ extern int main(int argc, char **argv)
         this_thread::sleep_for(chrono::milliseconds(rand() % 1000 + 300)); // sleep for 0.3 - 1.3 seconds
         lock_ue_mutex();
 
-        UE spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}, fmodf(rand(), 6000) / 100 + 60);
+        UE spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(coord_distribution(rng), max_coord), fmodf(coord_distribution(rng), max_coord)}, fmodf(rand(), 6000) / 100 + 60);
 
         sim_UEs.push_back(spawn_ue);
         find_closest_rus(&spawn_ue);

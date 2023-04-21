@@ -11,27 +11,26 @@ using namespace chrono;
 /// @brief Recalculates the current power consumption of the RU, measured in milliwatts
 void RU::calc_p()
 {
-    ///     ---------- TODO ----------
-    ///     FIX NUMBERS AND GRID SIZE
-    ///     TO BE MORE REALISTIC
-
     switch (this->type)
     {
     case RUType::macro:
         // Using macro values:
-        // Calculate current p as P_sleep + delta_p dependent on bandwidth + P_max * current load
-        this->p = this->antennae * 324000 + this->bandwidth * 0.00042 + ((float)this->alloc_PRB / (float)this->num_PRB) * 40000;
-        break;
-    
-    // For some reason, case micro: is ambiguous
-    case RUType::micro:
-        // Using pessimistic micro (parameterized picocell) values:
 
         // if no users, set to sleep mode level of power consumption
-        if (this->alloc_PRB == 0) this->p = 4900 * 0.15;
+        if (this->alloc_PRB == 0) this->p = 225000 * 0.15;
 
-        // Calculate current p as P_sleep + delta_p dependent on bandwidth + P_max * current load
-        else this->p = this->antennae * 4900 + this->bandwidth * 0.0004 + ((float)this->alloc_PRB / (float)this->num_PRB) * 100;
+        // Calculate current p as P_sleep + P_max * current load
+        this->p = 225000 + 30000 * ((float)this->alloc_PRB / (float)this->num_PRB);
+        break;
+    
+    case RUType::micro:
+        // Using micro values:
+
+        // if no users, set to sleep mode level of power consumption
+        if (this->alloc_PRB == 0) this->p = 40000 * 0.15;
+
+        // Calculate current p as P_sleep + P_max * current load
+        else this->p = 40000 + 20000 * ((float)this->alloc_PRB / (float)this->num_PRB);
         break;
     }
 }
@@ -41,7 +40,7 @@ RU::RU()
 {
 }
 
-RU::RU(string uid, float coords[2], int antennae, int bandwidth)
+RU::RU(string uid, float coords[2], int antennae, int bandwidth, bool macro)
 {
     this->uid = uid;
     this->coords[0] = coords[0];
@@ -54,6 +53,8 @@ RU::RU(string uid, float coords[2], int antennae, int bandwidth)
     this->alloc_PRB = 2;                              // initial allocated PRBs: 2 (allocated for scanning purposes if i remember correct)
     this->last_meas_t = high_resolution_clock::now(); // initialize last measure time to init time
     this->calc_p();
+
+    if (macro) this->type = RUType::macro;
 }
 
 const string RU::get_UID()

@@ -28,7 +28,7 @@ private:
 
 public:
     RU();
-    RU(std::string uid, float coords[2], int antennae, int bandwidth);
+    RU(std::string uid, float coords[2], int antennae, int bandwidth, bool macro = false);
 
     const std::string get_UID();
     const float *get_coords();
