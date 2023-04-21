@@ -1,4 +1,5 @@
 #include <mutex>
+#include <thread>
 #include <chrono>
 #include <ctime>
 #include <vector>
@@ -12,7 +13,7 @@
 
 using namespace std;
 
-atomic_bool sim_running_status = true; // assume simulation is running until it reports itself as stopped
+bool sim_running_status = true; // assume simulation is running until it reports itself as stopped
 mutex ue_mutex;
 
 void print_ue_conn(int ru_index)
@@ -62,7 +63,7 @@ void remove_ue(UE *ue, int ru_index)
     RU_conn[ru_index].remove(*ue);
 }
 
-atomic_bool sim_running()
+bool sim_running()
 {
     return sim_running_status;
 }
