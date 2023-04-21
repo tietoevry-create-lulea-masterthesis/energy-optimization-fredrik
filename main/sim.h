@@ -1,5 +1,6 @@
 #pragma once
 #include <list>
+#include <atomic>
 #include <iostream>
 #include "constants.h"
 #include "components.h"
@@ -24,8 +25,9 @@ bool handover(std::string ue_uid, int from_RU, int to_RU);
 /// @param ru_index the ru that the UE is currently connected to
 void remove_ue(UE *ue, int ru_index);
 
-void get_ue_mutex();
-void release_ue_mutex();
+std::atomic_bool sim_running();
+void lock_ue_mutex();
+void unlock_ue_mutex();
 
 float calc_sig_str(RU ru, UE ue);
 
@@ -52,4 +54,4 @@ std::string stringify_connected_ues(int ru_index);
 /// @return A string dependent on the value of the dist bool.
 std::string stringify_sig_str_arr(UE *ue, bool dist = false);
 
-void *sim_loop(void *sim_dur);
+void sim_loop(int sim_dur);

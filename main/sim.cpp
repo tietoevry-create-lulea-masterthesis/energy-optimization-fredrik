@@ -1,4 +1,4 @@
-#include <unistd.h>
+#include <mutex>
 #include <chrono>
 #include <ctime>
 #include <vector>
@@ -11,6 +11,9 @@
 #define EE_MODE_ON false // decides whether handovers by EE-xApp should be executed (if set to true) or ignored (if set to false)
 
 using namespace std;
+
+atomic_bool sim_running_status = true; // assume simulation is running until it reports itself as stopped
+mutex ue_mutex;
 
 void print_ue_conn(int ru_index)
 {
@@ -57,6 +60,21 @@ void remove_ue(UE *ue, int ru_index)
 
     sim_UEs.remove(*ue);
     RU_conn[ru_index].remove(*ue);
+}
+
+atomic_bool sim_running()
+{
+    return sim_running_status;
+}
+
+void lock_ue_mutex()
+{
+    ue_mutex.lock();
+}
+
+void unlock_ue_mutex()
+{
+    ue_mutex.unlock();
 }
 
 float calc_sig_str(RU ru, UE ue)
@@ -277,9 +295,9 @@ struct HandoverPoint
     }
 };
 
-void *sim_loop(void *sim_dur)
+void sim_loop(int sim_dur)
 {
-    auto stop_time = chrono::high_resolution_clock::now() + chrono::seconds((long) sim_dur);
+    auto stop_time = chrono::high_resolution_clock::now() + chrono::seconds(sim_dur);
 
     auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
     influxdb->batchOf(100); // creates buffer for writes, only writes to database once 100 points of data have accumulated
@@ -299,7 +317,8 @@ void *sim_loop(void *sim_dur)
 
     while (chrono::high_resolution_clock::now() < stop_time)
     {
-        sleep(0.1);
+        this_thread::sleep_for(chrono::milliseconds(10));
+        lock_ue_mutex();
 
         float sim_tot_P = 0;
         float sim_tot_E = 0;
@@ -359,7 +378,10 @@ void *sim_loop(void *sim_dur)
                 }
             }
         }
+        
+        unlock_ue_mutex();
     }
 
-    pthread_exit(NULL);
+    // exit sim loop
+    sim_running_status = false;
 }

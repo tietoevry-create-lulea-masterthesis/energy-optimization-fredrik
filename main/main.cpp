@@ -1,10 +1,10 @@
 #include <random>
 #include <string>
+#include <thread>
 #include <InfluxDBFactory.h>
 #include "constants.h"
 #include "components.h"
 #include "sim.h"
-#include <unistd.h>
 
 using namespace std;
 
@@ -70,18 +70,17 @@ extern int main(int argc, char **argv)
         sim_RUs[i].set_alloc_PRB(calc_alloc_PRB(i));
     }
 
-    long simulation_duration = 60; // Determines how long the simulation should last (in seconds)
-    auto stop_time = chrono::high_resolution_clock::now() + chrono::seconds(simulation_duration);
-
-    pthread_t sim_thread; // create thread for simulation + handover handle loop
-    pthread_create(&sim_thread, NULL, &sim_loop, (void *)simulation_duration);
+    long simulation_duration = 60;                    // Determines how long the simulation should last (in seconds)
+    thread sim_thread(sim_loop, simulation_duration); // Starts the simulation concurrently
 
     auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
 
     // For as long as simulation is running, keep instancing new, seeded UEs
-    while (chrono::high_resolution_clock::now() < stop_time)
+    while (sim_running())
     {
-        sleep(rand() % 1 + 1); // sleep for 1-3 seconds
+        this_thread::sleep_for(chrono::milliseconds(rand() % 1000 + 300)); // sleep for 0.3 - 1.3 seconds
+        lock_ue_mutex();
+
         UE spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(rand(), max_coord), fmodf(rand(), max_coord)}, fmodf(rand(), 6000) / 100 + 60);
 
         sim_UEs.push_back(spawn_ue);
@@ -113,8 +112,11 @@ extern int main(int argc, char **argv)
                             .addField("near_RU", stringify_sig_str_arr(&spawn_ue))
                             .addField("near_RU_sig", stringify_sig_str_arr(&spawn_ue, true))
                             .addTag("uid", spawn_ue.get_UID()));
+        
+        unlock_ue_mutex();
     }
     
-    pthread_exit(NULL);
+    sim_thread.join(); // wait for sim thread to exit and rejoin
+
     return 0;
 }
