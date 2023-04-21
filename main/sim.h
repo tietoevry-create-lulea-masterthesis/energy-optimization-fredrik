@@ -25,7 +25,7 @@ bool handover(std::string ue_uid, int from_RU, int to_RU);
 /// @param ru_index the ru that the UE is currently connected to
 void remove_ue(UE *ue, int ru_index);
 
-std::atomic_bool sim_running();
+bool sim_running();
 void lock_ue_mutex();
 void unlock_ue_mutex();
 
