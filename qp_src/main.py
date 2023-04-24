@@ -129,7 +129,7 @@ def predict_handovers(payload):
     ru_data = db.data # store RU data
 
     if ru_data is None:
-        return output # return empty dict, makes sure no message is sent
+        return "{}" # return empty json, "{}" makes sure no message is sent
 
     # first, find famous RUs
     for ru_uid in ru_list:

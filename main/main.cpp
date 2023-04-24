@@ -51,7 +51,7 @@ extern int main(int argc, char **argv)
     sim_RUs[75] = *new RU("RU_75", new float[2]{4000, 3500}, 4, 20000000, true);
 
     // Spawn UEs
-    for (size_t i = 0; i < 150; i++)
+    for (size_t i = 0; i < 80; i++)
     {
         // initialize a bunch of UEs with timers ranging from 60-120
         sim_UEs.push_back(*new UE("UE_" + to_string(i_ue), new float[2]{fmodf(coord_distribution(rng), max_coord), fmodf(coord_distribution(rng), max_coord)}, fmodf(rand(), 6000) / 100 + 60));
@@ -77,7 +77,7 @@ extern int main(int argc, char **argv)
         sim_RUs[i].set_alloc_PRB(calc_alloc_PRB(i));
     }
 
-    long simulation_duration = 60;                    // Determines how long the simulation should last (in seconds)
+    long simulation_duration = 300;                    // Determines how long the simulation should last (in seconds)
     thread sim_thread(sim_loop, simulation_duration); // Starts the simulation concurrently
 
     auto influxdb = influxdb::InfluxDBFactory::Get("http://root:rootboot@localhost:8086?db=RIC-Test");
@@ -85,7 +85,7 @@ extern int main(int argc, char **argv)
     // For as long as simulation is running, keep instancing new, seeded UEs
     while (sim_running())
     {
-        this_thread::sleep_for(chrono::milliseconds(rand() % 1000 + 300)); // sleep for 0.3 - 1.3 seconds
+        this_thread::sleep_for(chrono::milliseconds(rand() % 300 + 300)); // sleep for 0.3 - 0.6 seconds
         lock_ue_mutex();
 
         UE spawn_ue = *new UE("UE_" + to_string(i_ue), new float[2]{fmodf(coord_distribution(rng), max_coord), fmodf(coord_distribution(rng), max_coord)}, fmodf(rand(), 6000) / 100 + 60);
