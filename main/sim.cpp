@@ -323,6 +323,8 @@ void sim_loop(int sim_dur)
 
         float sim_tot_P = 0;
         float sim_tot_E = 0;
+        int num_sleeping_RUs = 0;
+
         // Loop through each RU and simulate power consumption + connections
         for (size_t i = 0; i < RU_NUM; i++)
         {
@@ -340,6 +342,7 @@ void sim_loop(int sim_dur)
             // Calc new load for each RU
             sim_RUs[i].set_alloc_PRB(calc_alloc_PRB(i));
             float current_load = (float)sim_RUs[i].get_alloc_PRB() / (float)sim_RUs[i].get_num_PRB();
+            if (sim_RUs[i].get_alloc_PRB() == 0) num_sleeping_RUs++;
 
             influxdb::Point{"sim_RUs"}.floatsPrecision = influxdb::defaultFloatsPrecision; // reset float precision
             influxdb->write(influxdb::Point{"sim_RUs"}
@@ -357,6 +360,7 @@ void sim_loop(int sim_dur)
 
         // Write network's total power consumption and energy consumed
         influxdb->write(influxdb::Point{"sim_total"}
+        .addField("sleeping_RUs", num_sleeping_RUs)
         .addField("total_P", sim_tot_P)
         .addField("total_E", sim_tot_E));
 
