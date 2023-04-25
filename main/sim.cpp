@@ -9,7 +9,7 @@
 #include "sim.h"
 #include <InfluxDBFactory.h>
 
-#define EE_MODE_ON false // decides whether handovers by EE-xApp should be executed (if set to true) or ignored (if set to false)
+#define EE_MODE_ON true // decides whether handovers by EE-xApp should be executed (if set to true) or ignored (if set to false)
 
 using namespace std;
 
@@ -99,11 +99,11 @@ float calc_sig_str(RU ru, UE ue)
     switch (ruType)
     {
     case RUType::macro:
-        sig_str = clamp(1 - sig_str / 3000, (float)0.0, (float)1.0); // max distance for a macro-RU is set to 2000 meters
+        sig_str = clamp(1 - sig_str / 2000, (float)0.0, (float)1.0); // max distance for a macro-RU is set to 2000 meters
         break;
 
     case RUType::micro:
-        sig_str = clamp(1 - sig_str / 1000, (float)0.0, (float)1.0); // max distance for a micro-RU is set to 500 meters
+        sig_str = clamp(1 - sig_str / 500, (float)0.0, (float)1.0); // max distance for a micro-RU is set to 500 meters
         break;
     }
 
